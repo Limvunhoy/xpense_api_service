@@ -14,10 +14,9 @@ class Account(SQLModel, table=True):
         uuid.uuid4()), primary_key=True)
     account_number: str
     account_name: str
-    # payment_type: str
+    account_type: str
+    account_logo: str
     currency: str
-    # cart_details: CartDetails
-    # bank_details: BankDetails
     created_at: datetime = Field(default_factory=datetime.now)
 
     transactions: list["Transaction"] = Relationship(back_populates="account")

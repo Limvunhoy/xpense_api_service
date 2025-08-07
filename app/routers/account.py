@@ -18,7 +18,8 @@ async def get_accounts(session: Session = Depends(get_session)):
     """
     Retrieve all accounts.
     """
-    statement = select(Account).where(Account.is_active == True)
+    statement = select(Account).where(Account.is_active ==
+                                      True).order_by(Account.account_type)
     accounts = session.exec(statement).all()
     return success_response(data=accounts)
 
