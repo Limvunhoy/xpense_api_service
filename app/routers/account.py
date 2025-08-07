@@ -18,7 +18,7 @@ async def get_accounts(session: Session = Depends(get_session)):
     """
     Retrieve all accounts.
     """
-    statement = select(Account)
+    statement = select(Account).where(Account.is_active == True)
     accounts = session.exec(statement).all()
     return success_response(data=accounts)
 
@@ -45,7 +45,7 @@ async def create_account(account_in: AccountCreate, session: Session = Depends(g
     session.add(new_account)
     session.commit()
     session.refresh(new_account)
-    
+
     return success_response(data=new_account)
 
 
