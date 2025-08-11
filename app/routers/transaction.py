@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, status
-from typing import List
+from fastapi import APIRouter, Depends, Query, status
+from typing import List, Optional
+from sqlalchemy import func
 from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 
@@ -8,22 +9,59 @@ from app.models.transaction import Transaction
 from app.models.account import Account
 from app.models.category import Category
 from app.schemas.transaction import TransactionRead, TransactionCreate, TransactionUpdate
-from app.schemas.response import BaseResponse
+from app.schemas.base_response import BaseResponse, PaginatedResponse
 from app.exceptions import AppHTTPException
-from app.core.helper.success_response import success_response
+from app.core.helper.success_response import success_response, paginated_success_response
+from datetime import datetime
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
-@router.get("/", response_model=BaseResponse[List[TransactionRead]])
-def get_transactions(session: Session = Depends(get_session)):
+@router.get("/", response_model=PaginatedResponse[List[TransactionRead]])
+def get_transactions(
+    *,
+    session: Session = Depends(get_session),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    account_id: Optional[str] = Query(None),
+    category_id: Optional[str] = Query(None),
+    currency: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None),
+    date_to: Optional[datetime] = Query(None),
+):
     """
     Retrieve all transactions. 
     """
     try:
         statement = select(Transaction)
-        transactions = session.exec(statement).all()
-        return success_response(data=transactions or [])
+
+        if account_id:
+            statement = statement.where(Transaction.account_id == account_id)
+        if category_id:
+            statement = statement.where(Transaction.category_id == category_id)
+        if currency:
+            statement = statement.where(Transaction.currency == currency)
+        if date_from:
+            statement = statement.where(
+                Transaction.transaction_date >= date_from)
+        if date_to:
+            statement = statement.where(
+                Transaction.transaction_date <= date_to)
+
+        count_statement = select(
+            func.count()).select_from(statement.subquery())
+        total = session.exec(count_statement).one()
+
+        transactions = session.exec(statement.offset(skip).limit(limit)).all()
+
+        return paginated_success_response(
+            data=transactions,
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
+
+        # return success_response(data=transactions or [])
     except Exception as e:
         raise AppHTTPException(
             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -80,12 +118,13 @@ async def create_transaction(
 
         return success_response(
             result_code=status.HTTP_201_CREATED,
-            message="Transaction created successfully",
+            result_message="Success",
             data=new_transaction,
         )
     except AppHTTPException:
         raise
     except Exception as e:
+        print(e)
         session.rollback()
         raise AppHTTPException(
             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -1,18 +1,22 @@
-from pydantic import BaseModel, Field, PositiveFloat, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, field_validator
 from typing import Optional
 from app.schemas.account import AccountRead
 from app.schemas.category import CategoryRead
+from uuid import UUID
+from datetime import datetime
 
 
 class TransactionBase(BaseModel):
-    currency: str = Field(..., min_length=1)
     amount: PositiveFloat
     note: Optional[str] = None
+    transaction_date: datetime = Field(
+        ...,
+        description="Date when the transaction occurred")
 
     class Config:
         from_attributes = True
 
-    @field_validator('currency', 'note', mode='before')
+    @field_validator('note', mode='before')
     def strip_whitespace(cls, value):
         if value is None:
             return None
@@ -20,23 +24,54 @@ class TransactionBase(BaseModel):
 
 
 class TransactionRead(TransactionBase):
-    id: str
+    id: UUID
+    currency: str = Field(..., min_length=3, max_length=3,
+                          pattern="^[A-Z]{3}$")
     account: AccountRead
     category: CategoryRead
+    # created_at: datetime
+    # updated_at: Optional[datetime] = Field(
+    #     None,
+    #     description="Timestamp when transaction was last updated."
+    # )
+
+    # class Config:
+    #     from_attributes: True
+    #     json_encoders = {datetime: lambda v: v.isoformat()}
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,  # Required for alias to work
+        json_encoders={
+            datetime: lambda v: v.isoformat(),
+            UUID: lambda v: str(v)
+        },
+    )
 
 
 class TransactionCreate(TransactionBase):
-    account_id: str
-    category_id: str
+    account_id: UUID
+    category_id: UUID
+    currency: str = Field(
+        ..., min_length=3, max_length=3,
+        pattern="^[A-Z]{3}$"
+    )
 
 
 class TransactionUpdate(BaseModel):
-    currency: Optional[str] = Field(None, min_length=1)
     amount: Optional[PositiveFloat] = None
     note: Optional[str] = None
     description: Optional[str] = Field(None, min_length=1)
-    account_id: Optional[str] = None
-    category_id: Optional[str] = None
+    account_id: Optional[UUID] = None
+    category_id: Optional[UUID] = None
+    currency: Optional[str] = Field(
+        None, min_length=3,
+        max_length=3,
+        pattern="^[A-Z]{3}$"
+    )
+    updated_at: Optional[datetime] = Field(
+        None,
+        description="Timestamp when transaction was last updated."
+    )
 
     @field_validator('currency', 'note', 'description', mode='before')
     def strip_whitespace(cls, value):

@@ -3,12 +3,10 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, SQLModel, create_engine
 from contextlib import asynccontextmanager
-
 from app.database import get_session, create_db_and_tables
-
 from .routers import transaction, account, category
-
 from app.exceptions import AppHTTPException
+from fastapi.staticfiles import StaticFiles
 
 
 @asynccontextmanager
@@ -20,6 +18,8 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+app.mount("/static/icons", StaticFiles(directory="app/static/icons"), name="static_icons")
 
 app.include_router(transaction.router)
 app.include_router(account.router)

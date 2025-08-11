@@ -6,7 +6,7 @@ from app.database import get_session
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
 from app.models.account import Account
 
-from app.schemas.response import BaseResponse
+from app.schemas.base_response import BaseResponse
 from app.core.helper.success_response import success_response
 from app.exceptions import AppHTTPException
 
@@ -18,8 +18,12 @@ async def get_accounts(session: Session = Depends(get_session)):
     """
     Retrieve all accounts.
     """
-    statement = select(Account).where(Account.is_active ==
-                                      True).order_by(Account.account_type)
+    statement = select(Account).where(
+        Account.is_active == True
+    ).order_by(
+        Account.account_type
+    )
+
     accounts = session.exec(statement).all()
     return success_response(data=accounts)
 

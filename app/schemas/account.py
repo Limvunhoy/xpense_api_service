@@ -2,12 +2,12 @@ from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from enum import Enum
-
+from uuid import UUID
 
 class AccountType(str, Enum):
     ABA = "ABA"
     WING = "WING"
-    AC = "AC"  # Fixed typo from "AC" to "ACLEDA"
+    AC = "AC"
     CASH = "CASH"
 
 
@@ -15,7 +15,7 @@ class AccountBase(BaseModel):
     account_number: str = Field(
         ...,
         min_length=1,
-        max_length=6,
+        max_length=9,
         description="Unique account identifier (1-6 characters)"
     )
     account_name: str = Field(
@@ -33,7 +33,7 @@ class AccountBase(BaseModel):
     )
     account_type: AccountType = Field(
         ...,
-        description="Type of account (ABA, WING, ACLEDA, or CASH)"
+        description="Type of account (ABA, WING, AC, or CASH)"
     )
     account_logo: Optional[str] = Field(  # Fixed typo from 'acount_logo'
         None,
@@ -53,19 +53,19 @@ class AccountBase(BaseModel):
 
 
 class AccountRead(AccountBase):
-    account_id: str = Field(
+    account_id: UUID = Field(
         ...,
-        alias="id",
+        # alias="id",
         description="Unique database identifier for the account"
     )
-    created_at: datetime = Field(
-        ...,
-        description="Timestamp when account was created"
-    )
-    updated_at: Optional[datetime] = Field(
-        None,
-        description="Timestamp when account was last updated"
-    )
+    # created_at: datetime = Field(
+    #     ...,
+    #     description="Timestamp when account was created"
+    # )
+    # updated_at: Optional[datetime] = Field(
+    #     None,
+    #     description="Timestamp when account was last updated"
+    # )
 
     class Config:
         from_attributes = True
@@ -104,6 +104,10 @@ class AccountUpdate(BaseModel):
     is_active: Optional[bool] = Field(
         None,
         description="Set account active/inactive status"
+    )
+    updated_at: Optional[datetime] = Field(
+        None,
+        description="Timestamp when account was last updated"
     )
 
     @field_validator('account_number', 'account_name', 'currency', 'account_logo', mode='before')

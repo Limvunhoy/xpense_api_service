@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, status, HTTPException
 from typing import List
 
@@ -5,11 +6,35 @@ from sqlmodel import Session, select
 from app.schemas.category import CategoryRead, CategoryCreate, CategoryUpdate
 from app.models.category import Category
 from app.database import get_session
-from app.schemas.response import BaseResponse
+from app.schemas.base_response import BaseResponse
 from app.exceptions import AppHTTPException
 from app.core.helper.success_response import success_response
 
 router = APIRouter(prefix="/categories", tags=["Categories"])
+
+ICON_DIR = "app/static/icons"
+ICON_BASE_URL = "/static/icons"
+
+
+@router.get("/icons", response_model=BaseResponse[List[str]])
+async def get_icons():
+    """
+    List all icon filenames (or URLs) available in the icons folder.
+    """
+
+    try:
+        files = [
+            f for f in os.listdir(ICON_DIR)
+            if os.path.isfile(os.path.join(ICON_DIR, f)) and f.lower().endswith(((".svg", ".png", ".jpg", ".jpeg", ".ico")))
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to read icons folder: {str(e)}"
+        )
+    
+    icon_urls = [f"{ICON_BASE_URL}/{filename}" for filename in files]
+    return success_response(data=icon_urls)
 
 
 @router.get("/", response_model=BaseResponse[List[CategoryRead]])
@@ -18,7 +43,7 @@ async def get_categories(session: Session = Depends(get_session)) -> List[Catego
 
     query = select(Category)
     categories = session.exec(query).all()
-    
+
     return success_response(data=categories or [])
 
 
@@ -35,7 +60,7 @@ async def create_category(category: CategoryCreate, session: Session = Depends(g
             error_code="E400"
         )
 
-    new_category = Category(**category.model_dump(exclude_unset=True))
+    new_category = Category(**category.model_dump())
     session.add(new_category)
     session.commit()
     session.refresh(new_category)
@@ -62,15 +87,15 @@ async def update_category(id: str, category: CategoryUpdate, session: Session = 
     return success_response(data=category_db)
 
 
-@router.delete("/{id}")
-async def delete_category(id: str, session: Session = Depends(get_session)):
-    category_data = session.get(CategoryRead, id)
-    if not category_data:
-        raise AppHTTPException(
-            result_code=404,
-            result_message="Category not found",
-            error_code="E404"
-        )
-    session.delete(category_data)
-    session.commit()
-    return success_response()
+# @router.delete("/{id}")
+# async def delete_category(id: str, session: Session = Depends(get_session)):
+#     category_data = session.get(Category, id)
+#     if not category_data:
+#         raise AppHTTPException(
+#             result_code=404,
+#             result_message="Category not found",
+#             error_code="E404"
+#         )
+#     session.delete(category_data)
+#     session.commit()
+#     return success_response()

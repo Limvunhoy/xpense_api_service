@@ -24,8 +24,9 @@ class BaseResponse(BaseModel, Generic[T]):
     )
 
 class PaginatedResponse(BaseResponse[T], Generic[T]):
-    page: int
-    total_page: int
+    total: int
+    skip: int
+    limit: int
 
 class ErrorResponse(BaseModel): 
     result_code: int 
