@@ -32,10 +32,10 @@ class TransactionBase(BaseModel):
             UTC_PLUS_7).isoformat()}
     )
 
-    @field_serializer('transaction_date')
-    def serialize_dt(self, dt: datetime, _info) -> str:
-        """Ensure datetime is always serialized with UTC+7 timezone"""
-        return dt.astimezone(UTC_PLUS_7).isoformat()
+    # @field_serializer('transaction_date')
+    # def serialize_dt(self, dt: datetime, _info) -> str:
+    #     """Ensure datetime is always serialized with UTC+7 timezone"""
+    #     return dt.astimezone(UTC_PLUS_7).isoformat()
 
     @field_validator('note', mode='before')
     def strip_whitespace(cls, value: Optional[str]) -> Optional[str]:
@@ -60,6 +60,11 @@ class TransactionRead(TransactionBase):
         from_attributes=True,
         populate_by_name=True
     )
+
+    @field_serializer('transaction_date')
+    def serialize_dt(self, dt: datetime, _info) -> str:
+        """Serialize datetime for API output in UTC+7 ISO format"""
+        return dt.astimezone(UTC_PLUS_7).isoformat()
 
 
 class TransactionCreate(TransactionBase):

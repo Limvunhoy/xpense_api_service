@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, logger, status
 from typing import List, Optional
 from sqlalchemy import func
 from sqlmodel import Session, select, desc
 from sqlalchemy.orm import selectinload
 
+from app.core.helper.timezones import get_now_utc_plus_7
 from app.database import get_session
 from app.models.transaction import Transaction
 from app.models.account import Account
@@ -12,7 +13,8 @@ from app.schemas.transaction import TransactionRead, TransactionCreate, Transact
 from app.schemas.base_response import BaseResponse, PaginatedResponse
 from app.exceptions import AppHTTPException
 from app.core.helper.success_response import success_response, paginated_success_response
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -69,6 +71,67 @@ def get_transactions(
             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             result_message="Failed to fetch transactions",
             error_code="E500",
+        )
+
+
+@router.get("/current-week", response_model=BaseResponse[List[TransactionRead]])
+def get_current_week_transactions(
+    *,
+    session: Session = Depends(get_session),
+    currency: Optional[str] = Query(
+        "USD",
+        min_length=3,
+        max_length=3,
+        pattern="^[A-Z]{3}$",
+        description="Filter by 3-letter ISO currency code (e.g. 'USD', 'KHR')"
+    ),
+):
+    """
+    Retrieve all transactions for the current week (Monday 00:00:00 to Sunday 23:59:59) in UTC+7 timezone.
+
+    Optionally filter by currency code. Returns transactions ordered by date (newest first).
+    """
+    try:
+        # Get current time in UTC+7 (Phnom Penh timezone)
+        tz = timezone(timedelta(hours=7))
+        current_time = datetime.now(tz)
+
+        # Calculate week boundaries
+        start_of_week = current_time - timedelta(days=current_time.weekday())
+        start_of_week = start_of_week.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+
+        end_of_week = start_of_week + timedelta(days=6)
+        end_of_week = end_of_week.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        )
+
+        # Build base query
+        query = (
+            select(Transaction)
+            .where(
+                Transaction.transaction_date >= start_of_week,
+                Transaction.transaction_date <= end_of_week
+            )
+            .order_by(desc(Transaction.transaction_date))
+        )
+
+        # Apply currency filter if provided
+        if currency:
+            query = query.where(Transaction.currency == currency.upper())
+
+        # Execute query
+        transactions = session.exec(query).all()
+
+        return success_response(data=transactions)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch current week transactions: {str(e)}")
+        raise AppHTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch current week transactions",
+            error_code="TRANSACTION_FETCH_ERROR",
         )
 
 
