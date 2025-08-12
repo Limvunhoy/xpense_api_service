@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from typing import List, Optional
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, select, desc
 from sqlalchemy.orm import selectinload
 
 from app.database import get_session
@@ -47,6 +47,8 @@ def get_transactions(
         if date_to:
             statement = statement.where(
                 Transaction.transaction_date <= date_to)
+
+        statement = statement.order_by(desc(Transaction.transaction_date))
 
         count_statement = select(
             func.count()).select_from(statement.subquery())

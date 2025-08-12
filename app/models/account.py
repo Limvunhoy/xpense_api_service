@@ -1,5 +1,8 @@
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship
+
+from app.core.helper.timezones import get_now_utc_plus_7
+
 from .cart_details import CartDetails
 from .bank_details import BankDetails
 from datetime import datetime
@@ -19,7 +22,8 @@ class Account(SQLModel, table=True):
     account_logo: str
     currency: str
     is_active: bool
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(
+        default_factory=get_now_utc_plus_7)
     updated_at: Optional[datetime] = Field(default=None)
 
     transactions: list["Transaction"] = Relationship(back_populates="account")

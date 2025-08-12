@@ -1,6 +1,8 @@
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+from app.core.helper.timezones import get_now_utc_plus_7
 
 from .account import Account
 from .category import Category
@@ -19,11 +21,10 @@ class Transaction(SQLModel, table=True):
     category_id: UUID = Field(foreign_key="category.id")
 
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc))
+        default_factory=get_now_utc_plus_7)
     updated_at: Optional[datetime] = Field(default=None)
 
-    transaction_date: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc))
+    transaction_date: datetime = Field(default_factory=get_now_utc_plus_7)
 
     account: Account | None = Relationship(back_populates="transactions")
     category: Category | None = Relationship(back_populates="transactions")
