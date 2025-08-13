@@ -1,31 +1,43 @@
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, Query, status, HTTPException
 from sqlmodel import Session, select
 from typing import List
 from app.database import get_session
 
-from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
+from app.schemas.account import AccountCreate, AccountDelete, AccountRead, AccountUpdate
 from app.models.account import Account
 
 from app.schemas.base_response import BaseResponse
 from app.core.helper.success_response import success_response
 from app.exceptions import AppHTTPException
+from uuid import UUID
+from typing import Optional
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
 
 
 @router.get("/", response_model=BaseResponse[List[AccountRead]])
-async def get_accounts(session: Session = Depends(get_session)):
+async def get_accounts(
+    *,
+    is_active: Optional[bool] = Query(None),
+    session: Session = Depends(get_session)
+):
     """
     Retrieve all accounts.
     """
-    statement = select(Account).where(
-        Account.is_active == True
-    ).order_by(
-        Account.account_type
-    )
+    try:
 
-    accounts = session.exec(statement).all()
-    return success_response(data=accounts)
+        active_filter = is_active if is_active is not None else True
+        statement = select(Account).where(Account.is_active == active_filter)
+        statement = statement.order_by(Account.account_type)
+
+        accounts = session.exec(statement).all()
+        return success_response(data=accounts)
+    except Exception as e:
+        raise AppHTTPException(
+            result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            result_message="Failed to fetch transactions",
+            error_code="E500",
+        )
 
 
 @router.post("/", response_model=BaseResponse[AccountRead], status_code=status.HTTP_201_CREATED)
@@ -55,12 +67,12 @@ async def create_account(account_in: AccountCreate, session: Session = Depends(g
 
 
 @router.patch("/{id}", response_model=BaseResponse[AccountRead])
-async def update_account(id: str, account: AccountUpdate, session: Session = Depends(get_session)):
+async def update_account(id: UUID, account: AccountUpdate, session: Session = Depends(get_session)):
     """
     Update an existing account.
     """
     account_db = session.get(Account, id)
-    if not account_db:
+    if account_db is None or not account_db.is_active:
         raise AppHTTPException(
             result_code=status.HTTP_404_NOT_FOUND,
             result_message="Account not found",
@@ -75,18 +87,43 @@ async def update_account(id: str, account: AccountUpdate, session: Session = Dep
     return success_response(data=account_db)
 
 
-@router.delete("/{id}")
-async def delete_account(id: str, session: Session = Depends(get_session)):
+# @router.delete("/{id}")
+# async def delete_account(id: UUID, session: Session = Depends(get_session)):
+#     """
+#     Delete na account by ID.
+#     """
+#     account_db = session.get(Account, id)
+#     if not account_db:
+#         raise AppHTTPException(
+#             result_code=status.HTTP_404_NOT_FOUND,
+#             result_message="Account not found",
+#             error_code="E404"
+#         )
+#     session.delete(account_db)
+#     session.commit()
+#     return success_response()
+
+@router.post("/delete")
+async def delete_account(
+    *,
+    request: AccountDelete,
+    session: Session = Depends(get_session)
+):
     """
-    Delete na account by ID. 
+    Delete an account by ID. 
     """
-    account_db = session.get(Account, id)
+    account_db = session.get(Account, request.account_id)
     if not account_db:
         raise AppHTTPException(
             result_code=status.HTTP_404_NOT_FOUND,
             result_message="Account not found",
             error_code="E404"
         )
-    session.delete(account_db)
+
+    account_db.is_active = False
+
+    session.add(account_db)
     session.commit()
+    session.refresh(account_db)
+
     return success_response()

@@ -4,91 +4,115 @@ from typing import Optional
 from enum import Enum
 from uuid import UUID
 
+from app.core.helper.timezones import get_now_utc_plus_7
+
 
 class AccountType(str, Enum):
+    """
+    Enum representing supported account types with enhanced metadata.
+    """
     ABA = "ABA"
     WING = "WING"
-    ACELEDA = "AC"  # Changed from "AC" to be more descriptive
+    AC = "AC"
     CASH = "CASH"
+    CREDIT = "CREDIT"
+    INVESTMENT = "INVESTMENT"
 
     @classmethod
     def get_description(cls) -> str:
-        return " | ".join([f"{item.value} ({item.name})" for item in cls])
+        """Returns formatted description of all account types."""
+        descriptions = {
+            cls.ABA: "ABA Bank Account",
+            cls.WING: "Wing Bank Account",
+            cls.AC: "ACLEDA Bank Account",
+            cls.CASH: "Physical Cash Holdings",
+            cls.CREDIT: "Credit Card Account",
+            cls.INVESTMENT: "Investment Portfolio",
+        }
+        return " | ".join([f"{item.value} ({descriptions[item]})" for item in cls])
 
 
 class AccountBase(BaseModel):
+    """
+    Shared fields and validation for Account schemas.
+    """
     account_number: str = Field(
         ...,
         min_length=1,
-        max_length=20,  # Increased from 9 to accommodate various bank formats
-        examples=["123456789", "ACC123"],
-        description="Unique account identifier/number"
+        max_length=12,
+        pattern=r"^[A-Z0-9\-]+$",
+        examples=["123456789", "ACC-123-XYZ"],
+        description="Unique account identifier/number (alphanumeric and hyphens)",
     )
+
     account_name: str = Field(
         ...,
-        min_length=1,
-        max_length=50,  # Increased from 12 for better usability
-        examples=["ABA Primary", "Cash Wallet"],
-        description="Display name for the account"
+        min_length=2,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9\s\-&]+$",
+        examples=["ABA Primary Account", "Cash Wallet"],
+        description="Display name for the account (2-50 alphanumeric characters)",
     )
+
     currency: str = Field(
         ...,
         min_length=3,
         max_length=3,
-        pattern="^[A-Z]{3}$",
         examples=["USD", "KHR"],
-        description="ISO 4217 currency code (e.g. USD, KHR)"
+        description="ISO 4217 currency code",
     )
+
     account_type: AccountType = Field(
         ...,
         examples=["ABA"],
-        description=f"Type of account. Options: {AccountType.get_description()}"
+        description=f"Type of account. Options: {AccountType.get_description()}",
     )
+
     account_logo: Optional[str] = Field(
         None,
+        max_length=255,
+        # pattern=r"^\/static\/logos\/[a-zA-Z0-9\-_]+\.(png|jpg|svg)$",
         examples=["/static/logos/aba.png"],
-        description="URL or path to account logo image (optional)"
+        description="URL path to account logo (PNG/JPG/SVG, max 255 chars)",
     )
-    is_active: bool = Field(
-        default=True,
-        examples=[True],
-        description="Active status of the account (default: True)"
-    )
+
+    # is_active: bool = Field(
+    #     True,
+    #     examples=[True],
+    #     description="Active status of the account (default: True)",
+    # )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "account_number": "123456789",
-                "account_name": "Main Account",
+                "account_number": "123-456-789",
+                "account_name": "Main ABA Account",
                 "currency": "USD",
                 "account_type": "ABA",
                 "account_logo": "/static/logos/aba.png",
-                "is_active": True
+                # "is_active": True,
             }
         }
     )
 
-    @field_validator('account_number', 'account_name', 'currency', 'account_logo', mode='before')
-    def strip_whitespace(cls, value: Optional[str]) -> Optional[str]:
-        """Automatically strip whitespace from string fields"""
-        return value.strip() if isinstance(value, str) else value
+    @field_validator("account_number", "account_name", mode="before")
+    def _strip_and_validate(cls, value: Optional[str]) -> Optional[str]:
+        """Remove whitespace and validate string fields."""
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                raise ValueError("Field cannot be empty or whitespace only")
+        return value
 
 
 class AccountRead(AccountBase):
+    """
+    Schema for reading account data with additional metadata.
+    """
     account_id: UUID = Field(
         ...,
         examples=["550e8400-e29b-41d4-a716-446655440000"],
-        description="System-generated unique identifier"
-    )
-    created_at: datetime = Field(
-        ...,
-        examples=["2023-01-01T00:00:00+07:00"],
-        description="Timestamp of account creation (UTC+7)"
-    )
-    updated_at: Optional[datetime] = Field(
-        None,
-        examples=["2023-01-02T00:00:00+07:00"],
-        description="Timestamp of last update (UTC+7)"
+        description="Unique system-generated account identifier",
     )
 
     model_config = ConfigDict(
@@ -96,76 +120,97 @@ class AccountRead(AccountBase):
         populate_by_name=True,
         json_encoders={
             datetime: lambda v: v.isoformat(),
-            UUID: lambda v: str(v)
-        }
+            UUID: lambda v: str(v),
+        },
     )
 
 
 class AccountCreate(AccountBase):
+    """
+    Schema for creating a new account.
+    """
+
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "account_number": "987654321",
-                "account_name": "New Account",
+                "account_number": "WING-987-654",
+                "account_name": "Wing Savings Account",
                 "currency": "KHR",
                 "account_type": "WING",
                 "account_logo": "/static/logos/wing.png",
-                "is_active": True
             }
         }
     )
 
 
 class AccountUpdate(BaseModel):
+    """
+    Schema for updating an existing account with partial updates.
+    """
     account_number: Optional[str] = Field(
         None,
         min_length=1,
         max_length=20,
-        examples=["654321987"],
-        description="Updated account number"
+        pattern=r"^[A-Z0-9\-]+$",
+        examples=["UPD-123-456"],
+        description="Updated account number",
     )
+
     account_name: Optional[str] = Field(
         None,
-        min_length=1,
+        min_length=2,
         max_length=50,
-        examples=["Updated Account"],
-        description="Updated account name"
+        pattern=r"^[a-zA-Z0-9\s\-&]+$",
+        examples=["Updated Account Name"],
+        description="Updated account name",
     )
+
     currency: Optional[str] = Field(
         None,
         min_length=3,
         max_length=3,
-        pattern="^[A-Z]{3}$",
         examples=["KHR"],
-        description="Updated currency code"
+        description="Updated currency code",
     )
+
     account_type: Optional[AccountType] = Field(
         None,
-        examples=["CASH"],
-        description="Updated account type"
+        examples=["AC"],
+        description="Updated account type",
     )
-    account_logo: Optional[str] = Field(
-        None,
-        examples=["/static/logos/updated.png"],
-        description="Updated logo path"
-    )
-    is_active: Optional[bool] = Field(
-        None,
-        examples=[False],
-        description="Updated active status"
+
+    # is_active: Optional[bool] = Field(
+    #     None,
+    #     examples=[False],
+    #     description="Updated active status",
+    # )
+
+    updated_at: Optional[datetime] = Field(
+        default_factory=get_now_utc_plus_7,
     )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "account_name": "Updated Name",
-                "currency": "USD",
-                "is_active": False
+                "account_name": "Updated Account Name",
+                # "is_active": True,
             }
         }
     )
 
-    @field_validator('account_number', 'account_name', 'currency', 'account_logo', mode='before')
-    def strip_whitespace(cls, value: Optional[str]) -> Optional[str]:
-        """Automatically strip whitespace from string fields"""
-        return value.strip() if isinstance(value, str) else value
+    @field_validator("account_number", "account_name", mode="before")
+    def _strip_and_validate(cls, value: Optional[str]) -> Optional[str]:
+        """Remove whitespace and validate string fields."""
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                raise ValueError("Field cannot be empty or whitespace only")
+        return value
+
+
+class AccountDelete(BaseModel):
+    account_id: UUID = Field(
+        ...,
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
+        description="Unique system-generated account identifier",
+    )

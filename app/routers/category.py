@@ -1,9 +1,10 @@
 import os
+from uuid import UUID
 from fastapi import APIRouter, Depends, status, HTTPException
 from typing import List
 
 from sqlmodel import Session, select
-from app.schemas.category import CategoryRead, CategoryCreate, CategoryUpdate
+from app.schemas.category import CategoryDelete, CategoryRead, CategoryCreate, CategoryUpdate
 from app.models.category import Category
 from app.database import get_session
 from app.schemas.base_response import BaseResponse
@@ -32,7 +33,7 @@ async def get_icons():
             status_code=500,
             detail=f"Failed to read icons folder: {str(e)}"
         )
-    
+
     icon_urls = [f"{ICON_BASE_URL}/{filename}" for filename in files]
     return success_response(data=icon_urls)
 
@@ -41,7 +42,9 @@ async def get_icons():
 async def get_categories(session: Session = Depends(get_session)) -> List[CategoryRead]:
     """Retrieve all categories from the database."""
 
-    query = select(Category)
+    query = select(Category).where(
+        Category.is_active == True
+    )
     categories = session.exec(query).all()
 
     return success_response(data=categories or [])
@@ -71,9 +74,9 @@ async def create_category(category: CategoryCreate, session: Session = Depends(g
 
 
 @router.patch("/{id}", response_model=BaseResponse[CategoryRead])
-async def update_category(id: str, category: CategoryUpdate, session: Session = Depends(get_session)):
+async def update_category(id: UUID, category: CategoryUpdate, session: Session = Depends(get_session)):
     category_db = session.get(Category, id)
-    if not category_db:
+    if category_db is None or not category_db.is_active:
         raise AppHTTPException(
             result_code=404,
             result_message="Category not found",
@@ -99,3 +102,23 @@ async def update_category(id: str, category: CategoryUpdate, session: Session = 
 #     session.delete(category_data)
 #     session.commit()
 #     return success_response()
+
+@router.post("/delete", response_model=BaseResponse)
+async def delete_category(
+    request: CategoryDelete,
+    session: Session = Depends(get_session)
+):
+    category_db = session.get(Category, request.category_id)
+    if not category_db:
+        raise AppHTTPException(
+            result_code=404,
+            result_message="Category not found",
+            error_code="E404"
+        )
+    category_db.is_active = False
+
+    session.add(category_db)
+    session.commit()
+    session.refresh(category_db)
+
+    return success_response()

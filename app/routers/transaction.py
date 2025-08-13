@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, Depends, Query, logger, status
 from typing import List, Optional
 from sqlalchemy import func
@@ -9,7 +10,7 @@ from app.database import get_session
 from app.models.transaction import Transaction
 from app.models.account import Account
 from app.models.category import Category
-from app.schemas.transaction import TransactionRead, TransactionCreate, TransactionUpdate
+from app.schemas.transaction import TransactionDelete, TransactionRead, TransactionCreate, TransactionUpdate
 from app.schemas.base_response import BaseResponse, PaginatedResponse
 from app.exceptions import AppHTTPException
 from app.core.helper.success_response import success_response, paginated_success_response
@@ -25,8 +26,8 @@ def get_transactions(
     session: Session = Depends(get_session),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    account_id: Optional[str] = Query(None),
-    category_id: Optional[str] = Query(None),
+    account_id: Optional[UUID] = Query(None),
+    category_id: Optional[UUID] = Query(None),
     currency: Optional[str] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
@@ -35,7 +36,7 @@ def get_transactions(
     Retrieve all transactions. 
     """
     try:
-        statement = select(Transaction)
+        statement = select(Transaction).where(Transaction.is_active == True)
 
         if account_id:
             statement = statement.where(Transaction.account_id == account_id)
@@ -45,10 +46,12 @@ def get_transactions(
             statement = statement.where(Transaction.currency == currency)
         if date_from:
             statement = statement.where(
-                Transaction.transaction_date >= date_from)
+                Transaction.transaction_date >= date_from
+            )
         if date_to:
             statement = statement.where(
-                Transaction.transaction_date <= date_to)
+                Transaction.transaction_date <= date_to
+            )
 
         statement = statement.order_by(desc(Transaction.transaction_date))
 
@@ -159,24 +162,25 @@ async def create_transaction(
     """
     Create a new transaction.
     """
+
+    def validate_entity(entity, name: str):
+        """Validate that the entity exists and it active"""
+        if entity is None or not entity.is_active:
+            raise AppHTTPException(
+                result_code=status.HTTP_404_NOT_FOUND,
+                result_message=f"{name} does not exist or is inactive",
+                error_code="E404"
+            )
+
     try:
         account = session.get(Account, transaction_in.account_id)
-        if not account:
-            raise AppHTTPException(
-                result_code=status.HTTP_404_NOT_FOUND,
-                result_message="Account does not exist",
-                error_code="E404"
-            )
+        validate_entity(account, "Account")
 
         category = session.get(Category, transaction_in.category_id)
-        if not category:
-            raise AppHTTPException(
-                result_code=status.HTTP_404_NOT_FOUND,
-                result_message="Category does not exist",
-                error_code="E404"
-            )
+        validate_entity(category, "Category")
 
         new_transaction = Transaction(**transaction_in.model_dump())
+
         session.add(new_transaction)
         session.commit()
         session.refresh(new_transaction)
@@ -186,8 +190,10 @@ async def create_transaction(
             result_message="Success",
             data=new_transaction,
         )
+
     except AppHTTPException:
         raise
+
     except Exception as e:
         print(e)
         session.rollback()
@@ -200,7 +206,7 @@ async def create_transaction(
 
 @router.patch("/{id}", response_model=BaseResponse[TransactionRead])
 async def update_transaction(
-    id: str,
+    id: UUID,
     transaction_in: TransactionUpdate,
     session: Session = Depends(get_session)
 ):
@@ -234,25 +240,58 @@ async def update_transaction(
         )
 
 
-@router.delete("/{id}", response_model=BaseResponse[None])
-async def delete_transaction(id: str, session: Session = Depends(get_session)):
-    """
-    Delete a transaction by ID.
-    """
+# @router.delete("/{id}", response_model=BaseResponse[None])
+# async def delete_transaction(id: UUID, session: Session = Depends(get_session)):
+#     """
+#     Delete a transaction by ID.
+#     """
+#     try:
+#         transaction = session.get(Transaction, id)
+#         if not transaction:
+#             raise AppHTTPException(
+#                 result_code=404,
+#                 result_message="Transaction not found",
+#                 error_code="E404"
+#             )
+
+#         session.delete(transaction)
+#         session.commit()
+
+#         return success_response()
+#     except AppHTTPException as e:
+#         session.rollback()
+#         raise AppHTTPException(
+#             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             result_message="Failed to delete transaction",
+#             error_code="E500",
+#             detail=str(e)
+#         )
+
+
+@router.post("/delete")
+async def delete_transaction(
+    *,
+    request: TransactionDelete,
+    session: Session = Depends(get_session)
+):
     try:
-        transaction = session.get(Transaction, id)
-        if not transaction:
+        transaction_db = session.get(Transaction, request.transaction_id)
+        if not transaction_db:
             raise AppHTTPException(
                 result_code=404,
                 result_message="Transaction not found",
                 error_code="E404"
             )
 
-        session.delete(transaction)
+        transaction_db.is_active = False
+
+        session.add(transaction_db)
         session.commit()
+        session.refresh(transaction_db)
 
         return success_response()
-    except AppHTTPException as e:
+
+    except Exception as e:
         session.rollback()
         raise AppHTTPException(
             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

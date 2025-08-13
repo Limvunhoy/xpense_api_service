@@ -1,29 +1,65 @@
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field, Relationship
+from typing import TYPE_CHECKING, Optional, List
+from enum import Enum
+from datetime import datetime
+from typing import Optional
 
 from app.core.helper.timezones import get_now_utc_plus_7
 
-from .cart_details import CartDetails
-from .bank_details import BankDetails
-from datetime import datetime
-from typing import TYPE_CHECKING, Optional
-
 if TYPE_CHECKING:
-    from app.models.transaction import Transaction
+    from .transaction import Transaction
 
 
 class Account(SQLModel, table=True):
-    # account_id: str = Field(default_factory=lambda: str(
-    #     uuid.uuid4()), primary_key=True)
-    account_id: UUID = Field(default_factory=uuid4, primary_key=True)
-    account_number: str
-    account_name: str
-    account_type: str
-    account_logo: str
-    currency: str
-    is_active: bool
-    created_at: datetime = Field(
-        default_factory=get_now_utc_plus_7)
-    updated_at: Optional[datetime] = Field(default=None)
+    """
+    Database model representing a expense account.
+    """
+    account_id: UUID = Field(
+        default_factory=uuid4,
+        primary_key=True, index=True
+    )
 
-    transactions: list["Transaction"] = Relationship(back_populates="account")
+    account_number: str = Field(
+        index=True, nullable=False,
+        unique=True,
+        description="Account number"
+    )
+
+    account_name: str = Field(
+        nullable=False,
+        description="Account display name"
+    )
+
+    currency: str = Field(
+        max_length=3, nullable=False,
+        description="ISO 4217 currency code"
+    )
+
+    account_type: str = Field(
+        nullable=False,
+        description="Type of the account (e.g, ABA, WING, AC, CASH, ...)"
+    )
+
+    account_logo: Optional[str] = Field(
+        default=None,
+        description="URL or path to account logo image"
+    )
+
+    is_active: bool = Field(
+        default=True, index=True,
+        description="Flag to mark account as active/inactive"
+    )
+
+    created_at: datetime = Field(default_factory=get_now_utc_plus_7)
+
+    updated_at: Optional[datetime] = Field(
+        default_factory=get_now_utc_plus_7,
+        nullable=True
+    )
+
+    # Relationships
+    transactions: List["Transaction"] = Relationship(back_populates="account")
+
+    def __repr__(self) -> str:
+        return f"<Account {self.account_name} ({self.account_id})>"
