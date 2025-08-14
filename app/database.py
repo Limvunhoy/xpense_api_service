@@ -4,17 +4,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PG_USER = os.getenv("POSTGRES_USER")
-PG_PASSWORD = os.getenv("POSTGRES_PASSWORD")
-PG_HOST = os.getenv("POSTGRES_HOST", "localhost")
-PG_PORT = os.getenv("POSTGRES_PORT", "5432")
-PG_DB = os.getenv("POSTGRES_DB")
+# PG_USER = os.getenv("POSTGRES_USER")
+# PG_PASSWORD = os.getenv("POSTGRES_PASSWORD")
+# PG_HOST = os.getenv("POSTGRES_HOST", "localhost")
+# PG_PORT = os.getenv("POSTGRES_PORT", "5432")
+# PG_DB = os.getenv("POSTGRES_DB")
 
-DATABASE_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}"
+# DATABASE_URL = f"postgresql+psycopg2://{PG_USER}:{PG_PASSWORD}@{PG_HOST}:{PG_PORT}/{PG_DB}"
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(
     DATABASE_URL,
-    echo=False,         # Set True to log SQL queries
+    echo=True,         # Set True to log SQL queries
     pool_pre_ping=True,
     pool_size=5,
     max_overflow=10,
