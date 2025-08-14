@@ -1,5 +1,5 @@
 import os
-from uuid import UUID
+
 from fastapi import APIRouter, Depends, status, HTTPException
 from typing import List
 
@@ -74,7 +74,7 @@ async def create_category(category: CategoryCreate, session: Session = Depends(g
 
 
 @router.patch("/{id}", response_model=BaseResponse[CategoryRead])
-async def update_category(id: UUID, category: CategoryUpdate, session: Session = Depends(get_session)):
+async def update_category(id: str, category: CategoryUpdate, session: Session = Depends(get_session)):
     category_db = session.get(Category, id)
     if category_db is None or not category_db.is_active:
         raise AppHTTPException(

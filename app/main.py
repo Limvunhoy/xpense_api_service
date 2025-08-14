@@ -28,7 +28,7 @@ app.include_router(category.router)
 
 @app.get("/")
 def root():
-    return "Welcome to Xpense API Service"
+    return {"message": "Welcome to Xpense API Service"}
 
 
 @app.exception_handler(AppHTTPException)

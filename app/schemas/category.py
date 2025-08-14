@@ -1,6 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional
-from uuid import UUID
 from datetime import datetime
 
 from app.core.helper.timezones import get_now_utc_plus_7
@@ -50,7 +49,7 @@ class CategoryRead(CategoryBase):
     """
     Schema for reading category data.
     """
-    category_id: UUID = Field(
+    category_id: str = Field(
         ...,
         examples=["123e4567-e89b-12d3-a456-426614174000"],
         description="Unique identifier for the category",
@@ -72,7 +71,6 @@ class CategoryRead(CategoryBase):
         from_attributes=True,
         json_encoders={
             datetime: lambda v: v.isoformat(),
-            UUID: lambda v: str(v),
         },
     )
 
@@ -128,9 +126,9 @@ class CategoryUpdate(BaseModel):
     #     description="Update active status",
     # )
 
-    updated_at: Optional[datetime] = Field(
-        default_factory=get_now_utc_plus_7,
-    )
+    # updated_at: Optional[datetime] = Field(
+    #     default_factory=get_now_utc_plus_7,
+    # )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -138,7 +136,6 @@ class CategoryUpdate(BaseModel):
                 "name": "Updated Transportation",
                 "description": "Updated transport expenses",
                 "icon_url": "/static/icons/bus.svg",
-                # "is_active": False,
             }
         }
     )
@@ -153,7 +150,7 @@ class CategoryDelete(BaseModel):
     """
     Schema for deleting an existing category.
     """
-    category_id: UUID = Field(
+    category_id: str = Field(
         ...,
         examples=["123e4567-e89b-12d3-a456-426614174000"],
         description="Unique identifier for the category",

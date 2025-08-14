@@ -1,6 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, field_validator, field_serializer
 from typing import Optional
-from uuid import UUID
 from datetime import datetime
 from enum import Enum
 
@@ -59,7 +58,7 @@ class TransactionRead(TransactionBase):
     """
     Schema for reading transaction data with complete details.
     """
-    transaction_id: UUID = Field(
+    transaction_id: str = Field(
         ...,
         examples=["a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"],
         description="Unique identifier for the transaction",
@@ -107,13 +106,13 @@ class TransactionCreate(TransactionBase):
     """
     Schema for creating a new transaction with required references.
     """
-    account_id: UUID = Field(
+    account_id: str = Field(
         ...,
         examples=["a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"],
         description="Reference to associated account",
     )
 
-    category_id: Optional[UUID] = Field(
+    category_id: Optional[str] = Field(
         None,
         examples=["b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9"],
         description="Optional reference to category",
@@ -159,13 +158,13 @@ class TransactionUpdate(BaseModel):
         description="Updated transaction notes",
     )
 
-    account_id: Optional[UUID] = Field(
+    account_id: Optional[str] = Field(
         None,
         examples=["a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"],
         description="Updated account reference",
     )
 
-    category_id: Optional[UUID] = Field(
+    category_id: Optional[str] = Field(
         None,
         examples=["b2c3d4e5-f6g7-8901-h2i3-j4k5l6m7n8o9"],
         description="Updated category reference",
@@ -212,7 +211,7 @@ class TransactionDelete(BaseModel):
     """
     Schema for deleting an existing transaction.
     """
-    transaction_id: UUID = Field(
+    transaction_id: str = Field(
         ...,
         examples=["a1b2c3d4-e5f6-7890-g1h2-i3j4k5l6m7n8"],
         description="Unique identifier for the transaction",

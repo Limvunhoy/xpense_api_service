@@ -1,4 +1,3 @@
-from uuid import UUID
 from fastapi import APIRouter, Depends, Query, logger, status
 from typing import List, Optional
 from sqlalchemy import func
@@ -26,8 +25,8 @@ def get_transactions(
     session: Session = Depends(get_session),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    account_id: Optional[UUID] = Query(None),
-    category_id: Optional[UUID] = Query(None),
+    account_id: Optional[str] = Query(None),
+    category_id: Optional[str] = Query(None),
     currency: Optional[str] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
@@ -70,6 +69,7 @@ def get_transactions(
 
         # return success_response(data=transactions or [])
     except Exception as e:
+        print(e)
         raise AppHTTPException(
             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             result_message="Failed to fetch transactions",
@@ -206,7 +206,7 @@ async def create_transaction(
 
 @router.patch("/{id}", response_model=BaseResponse[TransactionRead])
 async def update_transaction(
-    id: UUID,
+    id: str,
     transaction_in: TransactionUpdate,
     session: Session = Depends(get_session)
 ):

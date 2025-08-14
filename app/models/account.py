@@ -1,5 +1,7 @@
-from uuid import UUID, uuid4
-from sqlmodel import SQLModel, Field, Relationship
+from uuid import uuid4
+from sqlalchemy import Column, func
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlmodel import DateTime, SQLModel, Field, Relationship
 from typing import TYPE_CHECKING, Optional, List
 from enum import Enum
 from datetime import datetime
@@ -15,9 +17,26 @@ class Account(SQLModel, table=True):
     """
     Database model representing a expense account.
     """
-    account_id: UUID = Field(
-        default_factory=uuid4,
-        primary_key=True, index=True
+    # account_id: UUID = Field(
+    #     default_factory=uuid4,
+    #     # primary_key=True,
+    #     # index=True,
+    #     # sa_column_kwargs={"unique": True},
+    #     sa_column=Column(
+    #         PG_UUID(as_uuid=True),
+    #         primary_key=True,
+    #         unique=True,
+    #         nullable=False
+    #     )
+    # )
+    account_id: str = Field(
+        default_factory=lambda: str(uuid4()),
+        primary_key=True,
+        index=True,
+        unique=True,
+        max_length=36,
+        nullable=False,
+        description="Primary key stored as UUID string"
     )
 
     account_number: str = Field(
@@ -51,11 +70,21 @@ class Account(SQLModel, table=True):
         description="Flag to mark account as active/inactive"
     )
 
-    created_at: datetime = Field(default_factory=get_now_utc_plus_7)
+    created_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now()
+        )
+    )
 
     updated_at: Optional[datetime] = Field(
-        default_factory=get_now_utc_plus_7,
-        nullable=True
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            # PostgreSQL will auto-update it when the row is modified.
+            onupdate=func.now(),
+            nullable=False
+        )
     )
 
     # Relationships

@@ -2,7 +2,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import Optional
 from enum import Enum
-from uuid import UUID
+# from uuid import UUID
 
 from app.core.helper.timezones import get_now_utc_plus_7
 
@@ -109,7 +109,7 @@ class AccountRead(AccountBase):
     """
     Schema for reading account data with additional metadata.
     """
-    account_id: UUID = Field(
+    account_id: str = Field(
         ...,
         examples=["550e8400-e29b-41d4-a716-446655440000"],
         description="Unique system-generated account identifier",
@@ -120,7 +120,6 @@ class AccountRead(AccountBase):
         populate_by_name=True,
         json_encoders={
             datetime: lambda v: v.isoformat(),
-            UUID: lambda v: str(v),
         },
     )
 
@@ -185,9 +184,9 @@ class AccountUpdate(BaseModel):
     #     description="Updated active status",
     # )
 
-    updated_at: Optional[datetime] = Field(
-        default_factory=get_now_utc_plus_7,
-    )
+    # updated_at: Optional[datetime] = Field(
+    #     default_factory=get_now_utc_plus_7,
+    # )
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -209,7 +208,7 @@ class AccountUpdate(BaseModel):
 
 
 class AccountDelete(BaseModel):
-    account_id: UUID = Field(
+    account_id: str = Field(
         ...,
         examples=["550e8400-e29b-41d4-a716-446655440000"],
         description="Unique system-generated account identifier",

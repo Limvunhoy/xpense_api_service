@@ -9,7 +9,6 @@ from app.models.account import Account
 from app.schemas.base_response import BaseResponse
 from app.core.helper.success_response import success_response
 from app.exceptions import AppHTTPException
-from uuid import UUID
 from typing import Optional
 
 router = APIRouter(prefix="/accounts", tags=["Accounts"])
@@ -67,7 +66,7 @@ async def create_account(account_in: AccountCreate, session: Session = Depends(g
 
 
 @router.patch("/{id}", response_model=BaseResponse[AccountRead])
-async def update_account(id: UUID, account: AccountUpdate, session: Session = Depends(get_session)):
+async def update_account(id: str, account: AccountUpdate, session: Session = Depends(get_session)):
     """
     Update an existing account.
     """
