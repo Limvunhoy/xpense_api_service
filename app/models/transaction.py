@@ -2,7 +2,7 @@ from uuid import uuid4
 from sqlalchemy import Column, DateTime, func
 from sqlmodel import SQLModel, Field, Relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 from enum import Enum
 
@@ -34,7 +34,7 @@ class TransactionBase(SQLModel):
     )
 
     transaction_date: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         nullable=False,
         description="Effective date/time of the transaction"
     )
