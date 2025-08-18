@@ -55,6 +55,8 @@ class CategoryRead(CategoryBase):
         description="Unique identifier for the category",
     )
 
+    user_id: int
+
     created_at: datetime = Field(
         ...,
         examples=["2023-01-01T00:00:00Z"],

@@ -115,6 +115,8 @@ class AccountRead(AccountBase):
         description="Unique system-generated account identifier",
     )
 
+    user_id: int
+
     model_config = ConfigDict(
         from_attributes=True,
         populate_by_name=True,

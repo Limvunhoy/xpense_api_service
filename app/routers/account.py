@@ -3,6 +3,8 @@ from sqlmodel import Session, select
 from typing import List
 from app.database import get_session
 
+from app.models.user import User
+from app.routers.user import get_current_user
 from app.schemas.account import AccountCreate, AccountDelete, AccountRead, AccountUpdate
 from app.models.account import Account
 
@@ -18,15 +20,18 @@ router = APIRouter(prefix="/accounts", tags=["Accounts"])
 async def get_accounts(
     *,
     is_active: Optional[bool] = Query(None),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Retrieve all accounts.
     """
     try:
-
         active_filter = is_active if is_active is not None else True
-        statement = select(Account).where(Account.is_active == active_filter)
+        statement = select(Account).where(
+            Account.user_id == current_user.id,
+            Account.is_active == active_filter,
+        )
         statement = statement.order_by(Account.account_type)
 
         accounts = session.exec(statement).all()
@@ -40,15 +45,16 @@ async def get_accounts(
 
 
 @router.post("/", response_model=BaseResponse[AccountRead], status_code=status.HTTP_201_CREATED)
-async def create_account(account_in: AccountCreate, session: Session = Depends(get_session)):
-    """
-    Create a new account.
-    """
+async def create_account(
+    account_in: AccountCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     statement = select(Account).where(
-        Account.account_number == account_in.account_number
+        Account.user_id == current_user.id,
+        Account.account_number == account_in.account_number,
     )
     existing_account = session.exec(statement).first()
-
     if existing_account:
         raise AppHTTPException(
             result_code=status.HTTP_400_BAD_REQUEST,
@@ -56,63 +62,45 @@ async def create_account(account_in: AccountCreate, session: Session = Depends(g
             error_code="E400"
         )
 
-    new_account = Account(**account_in.model_dump())
-
+    new_account = Account(**account_in.model_dump(), user_id=current_user.id)
     session.add(new_account)
     session.commit()
     session.refresh(new_account)
-
     return success_response(data=new_account)
 
 
 @router.patch("/{id}", response_model=BaseResponse[AccountRead])
-async def update_account(id: str, account: AccountUpdate, session: Session = Depends(get_session)):
-    """
-    Update an existing account.
-    """
+async def update_account(
+    id: str,
+    account: AccountUpdate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
+):
     account_db = session.get(Account, id)
-    if account_db is None or not account_db.is_active:
+    if not account_db or not account_db.is_active or account_db.user_id != current_user.id:
         raise AppHTTPException(
             result_code=status.HTTP_404_NOT_FOUND,
             result_message="Account not found",
             error_code="E404"
         )
+
     account_data = account.model_dump(exclude_unset=True)
     account_db.sqlmodel_update(account_data)
     session.add(account_db)
     session.commit()
     session.refresh(account_db)
-
     return success_response(data=account_db)
 
-
-# @router.delete("/{id}")
-# async def delete_account(id: UUID, session: Session = Depends(get_session)):
-#     """
-#     Delete na account by ID.
-#     """
-#     account_db = session.get(Account, id)
-#     if not account_db:
-#         raise AppHTTPException(
-#             result_code=status.HTTP_404_NOT_FOUND,
-#             result_message="Account not found",
-#             error_code="E404"
-#         )
-#     session.delete(account_db)
-#     session.commit()
-#     return success_response()
 
 @router.post("/delete")
 async def delete_account(
     *,
     request: AccountDelete,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
-    """
-    Delete an account by ID. 
-    """
     account_db = session.get(Account, request.account_id)
-    if not account_db:
+    if not account_db or not account_db.is_active or account_db.user_id != current_user.id:
         raise AppHTTPException(
             result_code=status.HTTP_404_NOT_FOUND,
             result_message="Account not found",
@@ -120,9 +108,7 @@ async def delete_account(
         )
 
     account_db.is_active = False
-
     session.add(account_db)
     session.commit()
     session.refresh(account_db)
-
     return success_response()

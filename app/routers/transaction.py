@@ -9,6 +9,8 @@ from app.database import get_session
 from app.models.transaction import Transaction
 from app.models.account import Account
 from app.models.category import Category
+from app.models.user import User
+from app.routers.user import get_current_user
 from app.schemas.transaction import TransactionDelete, TransactionRead, TransactionCreate, TransactionUpdate
 from app.schemas.base_response import BaseResponse, PaginatedResponse
 from app.exceptions import AppHTTPException
@@ -30,12 +32,16 @@ def get_transactions(
     currency: Optional[str] = Query(None),
     date_from: Optional[datetime] = Query(None),
     date_to: Optional[datetime] = Query(None),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Retrieve all transactions. 
     """
     try:
-        statement = select(Transaction).where(Transaction.is_active == True)
+        statement = select(Transaction).where(
+            Transaction.is_active == True,
+            Transaction.user_id == current_user.id
+        )
 
         if account_id:
             statement = statement.where(Transaction.account_id == account_id)
@@ -88,6 +94,7 @@ def get_current_week_transactions(
         pattern="^[A-Z]{3}$",
         description="Filter by 3-letter ISO currency code (e.g. 'USD', 'KHR')"
     ),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Retrieve all transactions for the current week (Monday 00:00:00 to Sunday 23:59:59) in UTC+7 timezone.
@@ -114,6 +121,7 @@ def get_current_week_transactions(
         query = (
             select(Transaction)
             .where(
+                Transaction.user_id == current_user.id,
                 Transaction.transaction_date >= start_of_week,
                 Transaction.transaction_date <= end_of_week
             )
@@ -139,12 +147,12 @@ def get_current_week_transactions(
 
 
 @router.get("/{id}", response_model=BaseResponse[TransactionRead])
-def get_transaction(id: str, session: Session = Depends(get_session)):
+def get_transaction(id: str, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     """
     Retrieve a single transaction by ID.
     """
     transaction = session.get(Transaction, id)
-    if not transaction:
+    if not transaction or transaction.user_id != current_user.id or not transaction.is_active:
         raise AppHTTPException(
             result_code=404,
             result_message="Transaction not found",
@@ -157,7 +165,8 @@ def get_transaction(id: str, session: Session = Depends(get_session)):
 @router.post("/", response_model=BaseResponse[TransactionRead], status_code=status.HTTP_201_CREATED)
 async def create_transaction(
     transaction_in: TransactionCreate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new transaction.
@@ -165,7 +174,7 @@ async def create_transaction(
 
     def validate_entity(entity, name: str):
         """Validate that the entity exists and it active"""
-        if entity is None or not entity.is_active:
+        if entity is None or not entity.is_active or entity.user_id != current_user.id:
             raise AppHTTPException(
                 result_code=status.HTTP_404_NOT_FOUND,
                 result_message=f"{name} does not exist or is inactive",
@@ -179,7 +188,8 @@ async def create_transaction(
         category = session.get(Category, transaction_in.category_id)
         validate_entity(category, "Category")
 
-        new_transaction = Transaction(**transaction_in.model_dump())
+        new_transaction = Transaction(
+            **transaction_in.model_dump(), user_id=current_user.id)
 
         session.add(new_transaction)
         session.commit()
@@ -208,14 +218,15 @@ async def create_transaction(
 async def update_transaction(
     id: str,
     transaction_in: TransactionUpdate,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update an existing transaction by ID.
     """
     try:
         transaction_db = session.get(Transaction, id)
-        if not transaction_db:
+        if not transaction_db or not transaction_db.is_active or transaction_db.user_id != current_user.id:
             raise AppHTTPException(
                 result_code=404,
                 result_message="Transaction not found",
@@ -272,11 +283,12 @@ async def update_transaction(
 async def delete_transaction(
     *,
     request: TransactionDelete,
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user)
 ):
     try:
         transaction_db = session.get(Transaction, request.transaction_id)
-        if not transaction_db:
+        if not transaction_db or not transaction_db.is_active or transaction_db.user_id != current_user.id:
             raise AppHTTPException(
                 result_code=404,
                 result_message="Transaction not found",

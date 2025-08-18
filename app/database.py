@@ -1,46 +1,56 @@
-import os
+# app/database.py
 from sqlmodel import SQLModel, create_engine, Session
-from dotenv import load_dotenv
+from app.core.settings import settings
 
-# Load .env variables into environment
-load_dotenv()
 
-# Read required env vars
-SUPABASE_PASSWORD = os.getenv("SUPABASE_PASSWORD")
-SUPABASE_PROJECT_ID = os.getenv("SUPABASE_PROJECT_ID")
-USE_POOLER = os.getenv("SUPABASE_USE_POOLER",
-                       "false").strip().lower() == "true"
+# Select database URL based on ENV
+if settings.ENV == "dev":
+    DATABASE_URL = (
+        f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+        f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+    )
 
-if not SUPABASE_PASSWORD or not SUPABASE_PROJECT_ID:
-    raise EnvironmentError(
-        "Missing SUPABASE_PASSWORD or SUPABASE_PROJECT_ID in environment variables.")
+    engine = create_engine(
+        DATABASE_URL,
+        echo=True,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=10,
+    )
 
-# Determine DB host and user based on connection type
-if USE_POOLER:
-    DB_USER = f"postgres.{SUPABASE_PROJECT_ID}"
-    DB_HOST = "aws-1-ap-southeast-1.pooler.supabase.com"
 else:
-    DB_USER = "postgres"
-    DB_HOST = f"db.{SUPABASE_PROJECT_ID}.supabase.co"
+    if not settings.SUPABASE_PROJECT_ID or not settings.SUPABASE_PASSWORD:
+        raise EnvironmentError(
+            "Missing SUPABASE_PROJECT_ID or SUPABASE_PASSWORD in environment"
+        )
 
-# Build connection string
-DATABASE_URL = f"postgresql://{DB_USER}:{SUPABASE_PASSWORD}@{DB_HOST}:5432/postgres"
+    if settings.SUPABASE_USE_POOLER:
+        DB_USER = f"postgres.{settings.SUPABASE_PROJECT_ID}"
+        DB_HOST = "aws-1-ap-southeast-1.pooler.supabase.com"
+    else:
+        DB_USER = "postgres"
+        DB_HOST = f"db.{settings.SUPABASE_PROJECT_ID}.supabase.co"
 
-# Create SQLModel engine
-engine = create_engine(
-    DATABASE_URL,
-    echo=True,
-    pool_pre_ping=True,
-    connect_args={
-        "sslmode": "require",
-        "gssencmode": "disable",  # Prevent GSSAPI negotiation issues
-    },
-)
+    DATABASE_URL = (
+        f"postgresql+psycopg2://{DB_USER}:{settings.SUPABASE_PASSWORD}"
+        f"@{DB_HOST}:5432/postgres"
+    )
+
+    engine = create_engine(
+        DATABASE_URL,
+        echo=True,
+        pool_pre_ping=True,
+        connect_args={
+            "sslmode": "require",
+            "gssencmode": "disable",
+        },
+    )
 
 
 def create_db_and_tables() -> None:
-    """Create all tables defined in SQLModel metadata (dev only)."""
-    SQLModel.metadata.create_all(engine)
+    """Create tables only in development."""
+    if settings.ENV == "dev":
+        SQLModel.metadata.create_all(engine)
 
 
 def get_session():

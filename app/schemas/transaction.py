@@ -59,6 +59,8 @@ class TransactionRead(TransactionBase):
         description="Unique identifier for the transaction"
     )
 
+    user_id: int
+
     account: AccountRead
     category: Optional[CategoryRead]
 

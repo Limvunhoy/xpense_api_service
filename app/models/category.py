@@ -7,12 +7,14 @@ from typing import TYPE_CHECKING, Optional, List
 from datetime import datetime
 
 from app.core.helper.timezones import get_now_utc_plus_7
+from app.models.user import User
 
 if TYPE_CHECKING:
     from .transaction import Transaction
 
 
 class CategoryBase(SQLModel):
+    __tablename__ = "categories"
     """Base model for Category containing common fields."""
     name: str = Field(
         index=True,
@@ -81,6 +83,9 @@ class Category(CategoryBase, table=True):
             nullable=False
         )
     )
+
+    user_id: int = Field(foreign_key="users.id")
+    user: Optional[User] = Relationship(back_populates="categories")
 
     # Bidirectional relationship with transactions
     transactions: List["Transaction"] = Relationship(back_populates="category")

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from enum import Enum
 
 from app.core.helper.timezones import get_now_utc_plus_7
+from app.models.user import User
 
 if TYPE_CHECKING:
     from .account import Account
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
 
 
 class TransactionBase(SQLModel):
+    __tablename__ = "transactions"
     """Base model containing common transaction fields."""
     amount: float = Field(
         nullable=False,
@@ -87,16 +89,19 @@ class Transaction(TransactionBase, table=True):
 
     # Foreign keys
     account_id: str = Field(
-        foreign_key="account.account_id",
+        foreign_key="accounts.account_id",
         nullable=False,
         description="Reference to associated account"
     )
 
     category_id: Optional[str] = Field(
-        foreign_key="category.category_id",
+        foreign_key="categories.category_id",
         default=None,
         description="Optional reference to category"
     )
+
+    user_id: int = Field(foreign_key="users.id")
+    user: Optional[User] = Relationship(back_populates="transactions")
 
     # Relationships
     account: "Account" = Relationship(back_populates="transactions")

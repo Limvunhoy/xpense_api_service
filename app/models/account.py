@@ -8,27 +8,17 @@ from datetime import datetime
 from typing import Optional
 
 from app.core.helper.timezones import get_now_utc_plus_7
+from app.models.user import User
 
 if TYPE_CHECKING:
     from .transaction import Transaction
 
 
 class Account(SQLModel, table=True):
+    __tablename__ = "accounts"
     """
     Database model representing a expense account.
     """
-    # account_id: UUID = Field(
-    #     default_factory=uuid4,
-    #     # primary_key=True,
-    #     # index=True,
-    #     # sa_column_kwargs={"unique": True},
-    #     sa_column=Column(
-    #         PG_UUID(as_uuid=True),
-    #         primary_key=True,
-    #         unique=True,
-    #         nullable=False
-    #     )
-    # )
     account_id: str = Field(
         default_factory=lambda: str(uuid4()),
         primary_key=True,
@@ -86,6 +76,10 @@ class Account(SQLModel, table=True):
             nullable=False
         )
     )
+
+    # Link to user
+    user_id: int = Field(foreign_key="users.id")
+    user: Optional[User] = Relationship(back_populates="accounts")
 
     # Relationships
     transactions: List["Transaction"] = Relationship(back_populates="account")
