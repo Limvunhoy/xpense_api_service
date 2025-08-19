@@ -17,9 +17,11 @@ from app.models.user import User
 from app.schemas.base_response import BaseResponse
 from app.schemas.user import UserCreate, UserLogin, UserRead, UserWithToken
 from app.core.helper.success_response import success_response
+from app.core.security import oauth2_scheme
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 @router.post("/register", response_model=BaseResponse[UserWithToken])
@@ -70,7 +72,7 @@ def login(request: UserLogin, session: Session = Depends(get_session)):
         )
 
     # Optional: update last login
-    user.last_login = user.last_login  # or datetime.now(timezone.utc)
+    # user.last_login = user.last_login  # or datetime.now(timezone.utc)
     session.add(user)
     session.commit()
 
@@ -151,7 +153,7 @@ def get_current_user(
         print("JWT Error:", e)
         raise credentials_exception
 
-    try: 
+    try:
         user_id = int(user_id_str)
     except ValueError:
         raise credentials_exception

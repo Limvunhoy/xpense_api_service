@@ -104,6 +104,15 @@ class AccountBase(BaseModel):
                 raise ValueError("Field cannot be empty or whitespace only")
         return value
 
+    @field_validator("account_type", mode="before")
+    def validate_account_type(cls, value):
+        if value not in AccountType.__members__ and value not in [at.value for at in AccountType]:
+            raise ValueError(
+                f"Invalid account type '{value}'. "
+                f"Must be one of: {', '.join([at.value for at in AccountType])}"
+            )
+        return value
+
 
 class AccountRead(AccountBase):
     """
@@ -178,6 +187,14 @@ class AccountUpdate(BaseModel):
         None,
         examples=["AC"],
         description="Updated account type",
+    )
+
+    account_logo: Optional[str] = Field(
+        None,
+        max_length=255,
+        # pattern=r"^\/static\/logos\/[a-zA-Z0-9\-_]+\.(png|jpg|svg)$",
+        examples=["/static/logos/aba.png"],
+        description="URL path to account logo (PNG/JPG/SVG, max 255 chars)",
     )
 
     # is_active: Optional[bool] = Field(
