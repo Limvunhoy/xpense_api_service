@@ -37,7 +37,7 @@ class TransactionBase(BaseUTCModel):
         description="Additional context or memo about the transaction"
     )
 
-    transaction_date: Optional[datetime] = Field(
+    transaction_date: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="Transaction datetime in UTC"
     )
