@@ -67,7 +67,7 @@ def login(request: UserLogin, session: Session = Depends(get_session)):
     if not user or not verify_password(request.password, user.hashed_password):
         raise AppHTTPException(
             result_code=status.HTTP_401_UNAUTHORIZED,
-            result_message="Invalid credentials",
+            result_message="Incorrect username or password",
             error_code="E401"
         )
 
@@ -173,3 +173,15 @@ def read_user_current(current_user: User = Depends(get_current_user)):
             email=current_user.email
         )
     )
+
+
+@router.post("/logout", response_model=BaseResponse[None])
+def logout(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    """
+    Logout the current user by invalidating their refresh token.
+    """
+    current_user.token_version += 1
+    session.add(current_user)
+    session.commit()
+
+    return success_response()
