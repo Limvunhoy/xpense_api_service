@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, logger, status
-from typing import List, Optional
+from typing import Dict, List, Optional
 from sqlalchemy import func
 from sqlmodel import Session, select, desc
 from sqlalchemy.orm import selectinload
@@ -15,7 +15,7 @@ from app.schemas.transaction import TransactionDelete, TransactionRead, Transact
 from app.schemas.base_response import BaseResponse, PaginatedResponse
 from app.exceptions import AppHTTPException
 from app.core.helper.success_response import success_response, paginated_success_response
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -80,6 +80,76 @@ def get_transactions(
             result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             result_message="Failed to fetch transactions",
             error_code="E500",
+        )
+
+
+@router.get("/total-expenses", response_model=BaseResponse[Dict[str, float]])
+def get_total_expenses(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    from_date: Optional[date] = Query(
+        None,
+        description="Start date (inclusive) in format YYYY-MM-DD"
+    ),
+    to_date: Optional[date] = Query(
+        None,
+        description="End date (inclusive) in format YYYY-MM-DD"
+    ),
+):
+    """
+    Retrieve the total expenses in USD and KHR.
+    Can optionally filter by date range using `from_date` and `to_date`.
+
+    Response example:
+    {
+        "total_in_usd": 120.5,
+        "total_in_khr": 56000.0
+    }
+    """
+    try:
+        # Base conditions: user + type
+        conditions = [
+            Transaction.user_id == current_user.id,
+        ]
+
+        # Apply date filters if provided
+        if from_date:
+            conditions.append(Transaction.transaction_date >=
+                              datetime.combine(from_date, datetime.min.time()))
+        if to_date:
+            conditions.append(Transaction.transaction_date <=
+                              datetime.combine(to_date, datetime.max.time()))
+
+        # Query with filters
+        query = (
+            select(Transaction.currency, func.sum(
+                Transaction.amount).label("total"))
+            .where(*conditions)
+            .group_by(Transaction.currency)
+        )
+
+        results = session.exec(query).all()
+
+        # Default response with 0 if no expenses exist for that currency
+        totals = {
+            "total_in_usd": 0.0,
+            "total_in_khr": 0.0,
+        }
+
+        for currency, total in results:
+            if currency.upper() == "USD":
+                totals["total_in_usd"] = float(total or 0)
+            elif currency.upper() == "KHR":
+                totals["total_in_khr"] = float(total or 0)
+
+        return success_response(data=totals)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch total expenses: {str(e)}")
+        raise AppHTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch total expenses",
+            error_code="EXPENSE_FETCH_ERROR",
         )
 
 

@@ -45,5 +45,9 @@ def create_access_token(data: dict, expire_delta: timedelta | None = None):
 def create_refresh_token(user_id: int, token_version: int):
     expire = datetime.now(timezone.utc) + \
         timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    payload = {"sub": user_id, "token_version": token_version, "exp": expire}
+    payload = {
+        "sub": str(user_id),           # ✅ convert user_id to string
+        "token_version": token_version,
+        "exp": expire,
+    }
     return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=ALGORITHM)

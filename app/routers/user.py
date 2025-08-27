@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy import select
 from sqlmodel import Session
+from app.core.constants.app_error_code import AppErrorCode
 from app.core.settings import settings
 from app.core.security import (
     ALGORITHM,
@@ -15,7 +16,7 @@ from app.database import get_session
 from app.exceptions import AppHTTPException
 from app.models.user import User
 from app.schemas.base_response import BaseResponse
-from app.schemas.user import UserCreate, UserLogin, UserRead, UserWithToken
+from app.schemas.user import RefreshTokenRequest, UserCreate, UserLogin, UserRead, UserWithToken
 from app.core.helper.success_response import success_response
 from app.core.security import oauth2_scheme
 
@@ -92,17 +93,29 @@ def login(request: UserLogin, session: Session = Depends(get_session)):
 
 
 @router.post("/refresh", response_model=BaseResponse[UserWithToken])
-def refresh_token(refresh_token: str = Body(...), session: Session = Depends(get_session)):
+def refresh_token(
+    body: RefreshTokenRequest = Body(...),
+    session: Session = Depends(get_session),
+):
+    """
+    Refresh an access token using a valid refresh token.
+    Rotates the refresh token by incrementing the user's token_version.
+    """
     try:
         payload = jwt.decode(
-            refresh_token, settings.JWT_SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        token_version = payload.get("token_version")
-    except JWTError:
+            body.refresh_token,  # ✅ fixed: use request body
+            settings.JWT_SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+        print("Decoded refresh token payload:", payload)  # debug
+        user_id: int | None = payload.get("sub")
+        token_version: int | None = payload.get("token_version")
+    except JWTError as e:
+        print("JWT decode error:", e)
         raise AppHTTPException(
             result_code=status.HTTP_401_UNAUTHORIZED,
             result_message="Invalid refresh token",
-            error_code="E401"
+            error_code=AppErrorCode.REFRESH_TOKEN_INVALID,
         )
 
     user = session.get(User, user_id)
@@ -110,10 +123,10 @@ def refresh_token(refresh_token: str = Body(...), session: Session = Depends(get
         raise AppHTTPException(
             result_code=status.HTTP_401_UNAUTHORIZED,
             result_message="Refresh token revoked",
-            error_code="E401"
+            error_code=AppErrorCode.REFRESH_TOKEN_INVALID,
         )
 
-    # Rotate refresh token
+    # 🔄 Rotate refresh token
     user.token_version += 1
     session.add(user)
     session.commit()
@@ -128,9 +141,10 @@ def refresh_token(refresh_token: str = Body(...), session: Session = Depends(get
             email=user.email,
             access_token=access_token,
             refresh_token=new_refresh_token,
-            token_type="bearer"
+            token_type="bearer",
         )
     )
+
 
 
 def get_current_user(
@@ -139,8 +153,8 @@ def get_current_user(
 ) -> User:
     credentials_exception = AppHTTPException(
         result_code=status.HTTP_401_UNAUTHORIZED,
-        result_message="Could not validate credentials",
-        error_code="E401",
+        result_message="Access token expired or invalid",
+        error_code=AppErrorCode.ACCESS_TOKEN_EXPIRED, # reserved for access token issues
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:

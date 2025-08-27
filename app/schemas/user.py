@@ -31,3 +31,6 @@ class UserWithToken(BaseModel):
 
     class Config:
         froM_attribute = True
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
