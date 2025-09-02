@@ -12,13 +12,13 @@ fake = Faker()
 # ----- Your schemas (simplified for example) -----
 
 
-class Account(BaseModel):
+class Wallet(BaseModel):
     id: str
-    account_number: str
-    account_name: str
+    wallet_number: str
+    wallet_name: str
     currency: str
-    account_type: str
-    account_logo: str = None
+    wallet_type: str
+    wallet_logo: str = None
     is_active: bool = True
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -35,7 +35,7 @@ class Category(BaseModel):
 
 class Transaction(BaseModel):
     id: str
-    account_id: str
+    wallet_id: str
     category_id: str
     currency: str
     amount: float
@@ -46,7 +46,7 @@ class Transaction(BaseModel):
 
 
 # ----- In-memory "database" for demo -----
-accounts_db = []
+wallets_db = []
 categories_db = []
 transactions_db = []
 
@@ -59,19 +59,19 @@ CATEGORY_EXAMPLES = [
     {"name": "Utilities", "description": "Electricity, water, internet bills", "icon_name": "flash_on"},
     {"name": "Health", "description": "Medical, pharmacy", "icon_name": "local_hospital"},
     {"name": "Salary", "description": "Monthly income", "icon_name": "attach_money"},
-    {"name": "Transfers", "description": "Money moved between accounts", "icon_name": "swap_horiz"},
+    {"name": "Transfers", "description": "Money moved between wallets", "icon_name": "swap_horiz"},
 ]
 
 # ----- Data generation functions -----
 
 
-def generate_account() -> Account:
-    return Account(
+def generate_wallet() -> Wallet:
+    return Wallet(
         id=str(uuid4()),
-        account_number=fake.bothify(text='??##??##'),
-        account_name=fake.company(),
+        wallet_number=fake.bothify(text='??##??##'),
+        wallet_name=fake.company(),
         currency=random.choice(CURRENCIES),
-        account_type=random.choice(ACCOUNT_TYPES),
+        wallet_type=random.choice(ACCOUNT_TYPES),
         is_active=True,
         created_at=fake.date_time_between(start_date='-2y', end_date='now'),
         updated_at=None,
@@ -90,15 +90,15 @@ def generate_category() -> Category:
     )
 
 
-def generate_transaction(account: Account, category: Category) -> Transaction:
+def generate_transaction(wallet: Wallet, category: Category) -> Transaction:
     trans_date = fake.date_time_between(start_date='-90d', end_date='now')
     amount = round(random.uniform(5, 500), 2)
 
     return Transaction(
         id=str(uuid4()),
-        account_id=account.id,
+        wallet_id=wallet.id,
         category_id=category.id,
-        currency=account.currency,
+        currency=wallet.currency,
         amount=abs(amount),
         note=fake.sentence(nb_words=6),
         transaction_date=trans_date,
@@ -109,11 +109,11 @@ def generate_transaction(account: Account, category: Category) -> Transaction:
 # ----- API endpoints -----
 
 
-@app.post("/seed/accounts", response_model=List[Account])
-def seed_accounts(count: int = 5):
-    new_accounts = [generate_account() for _ in range(count)]
-    accounts_db.extend(new_accounts)
-    return new_accounts
+@app.post("/seed/wallets", response_model=List[Wallet])
+def seed_wallets(count: int = 5):
+    new_wallets = [generate_wallet() for _ in range(count)]
+    wallets_db.extend(new_wallets)
+    return new_wallets
 
 
 @app.post("/seed/categories", response_model=List[Category])
@@ -135,24 +135,24 @@ def seed_categories():
 
 @app.post("/seed/transactions", response_model=List[Transaction])
 def seed_transactions(count: int = 50):
-    if not accounts_db or not categories_db:
+    if not wallets_db or not categories_db:
         raise HTTPException(
-            status_code=400, detail="Seed accounts and categories first")
+            status_code=400, detail="Seed wallets and categories first")
 
     new_transactions = []
     for _ in range(count):
-        account = random.choice(accounts_db)
+        wallet = random.choice(wallets_db)
         category = random.choice(categories_db)
-        trans = generate_transaction(account, category)
+        trans = generate_transaction(wallet, category)
         new_transactions.append(trans)
 
     transactions_db.extend(new_transactions)
     return new_transactions
 
 
-@app.get("/accounts", response_model=List[Account])
-def list_accounts():
-    return accounts_db
+@app.get("/wallets", response_model=List[Wallet])
+def list_wallets():
+    return wallets_db
 
 
 @app.get("/categories", response_model=List[Category])
@@ -166,7 +166,7 @@ def list_transactions():
 
 
 def seed_all():
-    # call your generate_account, generate_category, generate_transaction
+    # call your generate_wallet, generate_category, generate_transaction
     # save to DB or whatever persistence you use
     pass
 

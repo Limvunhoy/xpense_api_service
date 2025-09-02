@@ -14,12 +14,12 @@ if TYPE_CHECKING:
     from .transaction import Transaction
 
 
-class Account(SQLModel, table=True):
-    __tablename__ = "accounts"
+class Wallet(SQLModel, table=True):
+    __tablename__ = "wallets"
     """
-    Database model representing a expense account.
+    Database model representing a expense wallet.
     """
-    account_id: str = Field(
+    wallet_id: str = Field(
         default_factory=lambda: str(uuid4()),
         primary_key=True,
         index=True,
@@ -29,15 +29,15 @@ class Account(SQLModel, table=True):
         description="Primary key stored as UUID string"
     )
 
-    account_number: str = Field(
+    wallet_number: str = Field(
         index=True, nullable=False,
         unique=True,
-        description="Account number"
+        description="Wallet number"
     )
 
-    account_name: str = Field(
+    wallet_name: str = Field(
         nullable=False,
-        description="Account display name"
+        description="Wallet display name"
     )
 
     currency: str = Field(
@@ -45,19 +45,19 @@ class Account(SQLModel, table=True):
         description="ISO 4217 currency code"
     )
 
-    account_type: str = Field(
+    wallet_type: str = Field(
         nullable=False,
-        description="Type of the account (e.g, ABA, WING, AC, CASH, ...)"
+        description="Type of the wallet (e.g, ABA, WING, AC, CASH, ...)"
     )
 
-    account_logo: Optional[str] = Field(
+    wallet_logo: Optional[str] = Field(
         default=None,
-        description="URL or path to account logo image"
+        description="URL or path to wallet logo image"
     )
 
     is_active: bool = Field(
         default=True, index=True,
-        description="Flag to mark account as active/inactive"
+        description="Flag to mark wallet as active/inactive"
     )
 
     created_at: datetime = Field(
@@ -79,10 +79,10 @@ class Account(SQLModel, table=True):
 
     # Link to user
     user_id: int = Field(foreign_key="users.id")
-    user: Optional[User] = Relationship(back_populates="accounts")
+    user: Optional[User] = Relationship(back_populates="wallets")
 
     # Relationships
-    transactions: List["Transaction"] = Relationship(back_populates="account")
+    transactions: List["Transaction"] = Relationship(back_populates="wallet")
 
     def __repr__(self) -> str:
-        return f"<Account {self.account_name} ({self.account_id})>"
+        return f"<Wallet {self.wallet_name} ({self.wallet_id})>"

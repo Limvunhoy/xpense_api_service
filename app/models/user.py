@@ -4,7 +4,7 @@ from sqlalchemy import Column, func
 from sqlmodel import DateTime, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
-    from .account import Account
+    from .wallet import Wallet
     from .category import Category
     from .transaction import Transaction
 
@@ -24,6 +24,6 @@ class User(SQLModel, table=True):
     )
 
     token_version: int = Field(default=0, nullable=False)
-    accounts: List["Account"] = Relationship(back_populates="user")
+    wallets: List["Wallet"] = Relationship(back_populates="user")
     categories: List["Category"] = Relationship(back_populates="user")
     transactions: List["Transaction"] = Relationship(back_populates="user")

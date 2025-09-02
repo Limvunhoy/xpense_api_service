@@ -9,7 +9,7 @@ from app.core.helper.timezones import get_now_utc_plus_7
 
 class AccountType(str, Enum):
     """
-    Enum representing supported account types with enhanced metadata.
+    Enum representing supported wallet types with enhanced metadata.
     """
     ABA = "ABA"
     WING = "WING"
@@ -20,13 +20,13 @@ class AccountType(str, Enum):
 
     @classmethod
     def get_description(cls) -> str:
-        """Returns formatted description of all account types."""
+        """Returns formatted description of all wallet types."""
         descriptions = {
-            cls.ABA: "ABA Bank Account",
-            cls.WING: "Wing Bank Account",
-            cls.AC: "ACLEDA Bank Account",
+            cls.ABA: "ABA Bank Wallet",
+            cls.WING: "Wing Bank Wallet",
+            cls.AC: "ACLEDA Bank Wallet",
             cls.CASH: "Physical Cash Holdings",
-            cls.CREDIT: "Credit Card Account",
+            cls.CREDIT: "Credit Card Wallet",
             cls.INVESTMENT: "Investment Portfolio",
         }
         return " | ".join([f"{item.value} ({descriptions[item]})" for item in cls])
@@ -34,24 +34,24 @@ class AccountType(str, Enum):
 
 class AccountBase(BaseModel):
     """
-    Shared fields and validation for Account schemas.
+    Shared fields and validation for Wallet schemas.
     """
-    account_number: str = Field(
+    wallet_number: str = Field(
         ...,
         min_length=1,
         max_length=12,
         pattern=r"^[A-Z0-9\-]+$",
         examples=["123456789", "ACC-123-XYZ"],
-        description="Unique account identifier/number (alphanumeric and hyphens)",
+        description="Unique wallet identifier/number (alphanumeric and hyphens)",
     )
 
-    account_name: str = Field(
+    wallet_name: str = Field(
         ...,
         min_length=2,
         max_length=50,
         pattern=r"^[a-zA-Z0-9\s\-&]+$",
-        examples=["ABA Primary Account", "Cash Wallet"],
-        description="Display name for the account (2-50 alphanumeric characters)",
+        examples=["ABA Primary Wallet", "Cash Wallet"],
+        description="Display name for the wallet (2-50 alphanumeric characters)",
     )
 
     currency: str = Field(
@@ -62,40 +62,40 @@ class AccountBase(BaseModel):
         description="ISO 4217 currency code",
     )
 
-    account_type: AccountType = Field(
+    wallet_type: AccountType = Field(
         ...,
         examples=["ABA"],
-        description=f"Type of account. Options: {AccountType.get_description()}",
+        description=f"Type of wallet. Options: {AccountType.get_description()}",
     )
 
-    account_logo: Optional[str] = Field(
+    wallet_logo: Optional[str] = Field(
         None,
         max_length=255,
         # pattern=r"^\/static\/logos\/[a-zA-Z0-9\-_]+\.(png|jpg|svg)$",
         examples=["/static/logos/aba.png"],
-        description="URL path to account logo (PNG/JPG/SVG, max 255 chars)",
+        description="URL path to wallet logo (PNG/JPG/SVG, max 255 chars)",
     )
 
     # is_active: bool = Field(
     #     True,
     #     examples=[True],
-    #     description="Active status of the account (default: True)",
+    #     description="Active status of the wallet (default: True)",
     # )
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "account_number": "123-456-789",
-                "account_name": "Main ABA Account",
+                "wallet_number": "123-456-789",
+                "wallet_name": "Main ABA Wallet",
                 "currency": "USD",
-                "account_type": "ABA",
-                "account_logo": "/static/logos/aba.png",
+                "wallet_type": "ABA",
+                "wallet_logo": "/static/logos/aba.png",
                 # "is_active": True,
             }
         }
     )
 
-    @field_validator("account_number", "account_name", mode="before")
+    @field_validator("wallet_number", "wallet_name", mode="before")
     def _strip_and_validate(cls, value: Optional[str]) -> Optional[str]:
         """Remove whitespace and validate string fields."""
         if isinstance(value, str):
@@ -104,11 +104,11 @@ class AccountBase(BaseModel):
                 raise ValueError("Field cannot be empty or whitespace only")
         return value
 
-    @field_validator("account_type", mode="before")
-    def validate_account_type(cls, value):
+    @field_validator("wallet_type", mode="before")
+    def validate_wallet_type(cls, value):
         if value not in AccountType.__members__ and value not in [at.value for at in AccountType]:
             raise ValueError(
-                f"Invalid account type '{value}'. "
+                f"Invalid wallet type '{value}'. "
                 f"Must be one of: {', '.join([at.value for at in AccountType])}"
             )
         return value
@@ -116,12 +116,12 @@ class AccountBase(BaseModel):
 
 class AccountRead(AccountBase):
     """
-    Schema for reading account data with additional metadata.
+    Schema for reading wallet data with additional metadata.
     """
-    account_id: str = Field(
+    wallet_id: str = Field(
         ...,
         examples=["550e8400-e29b-41d4-a716-446655440000"],
-        description="Unique system-generated account identifier",
+        description="Unique system-generated wallet identifier",
     )
 
     user_id: int
@@ -137,17 +137,17 @@ class AccountRead(AccountBase):
 
 class AccountCreate(AccountBase):
     """
-    Schema for creating a new account.
+    Schema for creating a new wallet.
     """
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "account_number": "WING-987-654",
-                "account_name": "Wing Savings Account",
+                "wallet_number": "WING-987-654",
+                "wallet_name": "Wing Savings Wallet",
                 "currency": "KHR",
-                "account_type": "WING",
-                "account_logo": "/static/logos/wing.png",
+                "wallet_type": "WING",
+                "wallet_logo": "/static/logos/wing.png",
             }
         }
     )
@@ -155,24 +155,24 @@ class AccountCreate(AccountBase):
 
 class AccountUpdate(BaseModel):
     """
-    Schema for updating an existing account with partial updates.
+    Schema for updating an existing wallet with partial updates.
     """
-    account_number: Optional[str] = Field(
+    wallet_number: Optional[str] = Field(
         None,
         min_length=1,
         max_length=20,
         pattern=r"^[A-Z0-9\-]+$",
         examples=["UPD-123-456"],
-        description="Updated account number",
+        description="Updated wallet number",
     )
 
-    account_name: Optional[str] = Field(
+    wallet_name: Optional[str] = Field(
         None,
         min_length=2,
         max_length=50,
         pattern=r"^[a-zA-Z0-9\s\-&]+$",
-        examples=["Updated Account Name"],
-        description="Updated account name",
+        examples=["Updated Wallet Name"],
+        description="Updated wallet name",
     )
 
     currency: Optional[str] = Field(
@@ -183,18 +183,18 @@ class AccountUpdate(BaseModel):
         description="Updated currency code",
     )
 
-    account_type: Optional[AccountType] = Field(
+    wallet_type: Optional[AccountType] = Field(
         None,
         examples=["AC"],
-        description="Updated account type",
+        description="Updated wallet type",
     )
 
-    account_logo: Optional[str] = Field(
+    wallet_logo: Optional[str] = Field(
         None,
         max_length=255,
         # pattern=r"^\/static\/logos\/[a-zA-Z0-9\-_]+\.(png|jpg|svg)$",
         examples=["/static/logos/aba.png"],
-        description="URL path to account logo (PNG/JPG/SVG, max 255 chars)",
+        description="URL path to wallet logo (PNG/JPG/SVG, max 255 chars)",
     )
 
     # is_active: Optional[bool] = Field(
@@ -210,13 +210,13 @@ class AccountUpdate(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "account_name": "Updated Account Name",
+                "wallet_name": "Updated Wallet Name",
                 # "is_active": True,
             }
         }
     )
 
-    @field_validator("account_number", "account_name", mode="before")
+    @field_validator("wallet_number", "wallet_name", mode="before")
     def _strip_and_validate(cls, value: Optional[str]) -> Optional[str]:
         """Remove whitespace and validate string fields."""
         if isinstance(value, str):
@@ -227,8 +227,8 @@ class AccountUpdate(BaseModel):
 
 
 class AccountDelete(BaseModel):
-    account_id: str = Field(
+    wallet_id: str = Field(
         ...,
         examples=["550e8400-e29b-41d4-a716-446655440000"],
-        description="Unique system-generated account identifier",
+        description="Unique system-generated wallet identifier",
     )

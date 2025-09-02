@@ -5,7 +5,7 @@ from sqlmodel import Session, SQLModel, create_engine
 from contextlib import asynccontextmanager
 from app.database import get_session, create_db_and_tables
 from app.routers import user
-from .routers import transaction, account, category
+from .routers import transaction, wallet, category
 from app.exceptions import AppHTTPException
 from fastapi.staticfiles import StaticFiles
 from app.core.settings import settings
@@ -29,7 +29,7 @@ app.mount("/static/icons", StaticFiles(directory="app/static/icons"),
 
 app.include_router(user.router)
 app.include_router(transaction.router)
-app.include_router(account.router)
+app.include_router(wallet.router)
 app.include_router(category.router)
 
 

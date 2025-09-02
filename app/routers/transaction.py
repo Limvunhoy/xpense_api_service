@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.core.helper.timezones import get_now_utc_plus_7
 from app.database import get_session
 from app.models.transaction import Transaction
-from app.models.account import Account
+from app.models.wallet import Wallet
 from app.models.category import Category
 from app.models.user import User
 from app.routers.user import get_current_user
@@ -27,11 +27,11 @@ def get_transactions(
     session: Session = Depends(get_session),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1, le=100),
-    account_id: Optional[str] = Query(None),
+    wallet_id: Optional[str] = Query(None),
     category_id: Optional[str] = Query(None),
     currency: Optional[str] = Query(None),
-    date_from: Optional[datetime] = Query(None),
-    date_to: Optional[datetime] = Query(None),
+    from_date: Optional[datetime] = Query(None),
+    to_date: Optional[datetime] = Query(None),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -43,22 +43,22 @@ def get_transactions(
             Transaction.user_id == current_user.id
         )
 
-        if account_id:
-            statement = statement.where(Transaction.account_id == account_id)
+        if wallet_id:
+            statement = statement.where(Transaction.wallet_id == wallet_id)
         if category_id:
             statement = statement.where(Transaction.category_id == category_id)
         if currency:
             statement = statement.where(Transaction.currency == currency)
-        if date_from:
+        if from_date:
             statement = statement.where(
-                Transaction.transaction_date >= date_from
+                Transaction.transaction_date >= from_date
             )
-        if date_to:
+        if to_date:
             statement = statement.where(
-                Transaction.transaction_date <= date_to
+                Transaction.transaction_date <= to_date
             )
 
-        statement = statement.order_by(desc(Transaction.transaction_date))
+        statement = statement.order_by(desc(Transaction.created_at))
 
         count_statement = select(
             func.count()).select_from(statement.subquery())
@@ -252,14 +252,16 @@ async def create_transaction(
             )
 
     try:
-        account = session.get(Account, transaction_in.account_id)
-        validate_entity(account, "Account")
+        wallet = session.get(Wallet, transaction_in.wallet_id)
+        validate_entity(wallet, "Wallet")
 
         category = session.get(Category, transaction_in.category_id)
         validate_entity(category, "Category")
 
         new_transaction = Transaction(
-            **transaction_in.model_dump(), user_id=current_user.id)
+            **transaction_in.model_dump(), 
+            user_id=current_user.id
+        )
 
         session.add(new_transaction)
         session.commit()

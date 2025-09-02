@@ -1,6 +1,6 @@
 # from datetime import datetime
 # from pydantic import BaseModel
-# from app.schemas.account import AccountRead
+# from app.schemas.wallet import AccountRead
 # from app.schemas.category import CategoryRead
 
 
@@ -9,7 +9,7 @@
 #     currency: str
 #     amount: float
 #     note: str | None = None
-#     account: AccountRead
+#     wallet: AccountRead
 #     category: CategoryRead
 #     created_at: datetime
 

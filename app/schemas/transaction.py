@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, field_validator, field_serializer
 from typing import Optional
 from datetime import datetime, timezone
-from app.schemas.account import AccountRead
+from app.schemas.wallet import AccountRead
 from app.schemas.category import CategoryRead
 
 # --- Base model for UTC timestamps ---
@@ -11,7 +11,9 @@ class BaseUTCModel(BaseModel):
     """Base model to handle UTC datetime serialization"""
     model_config = ConfigDict(
         from_attributes=True,
-        json_encoders={datetime: lambda v: v.isoformat()}
+        json_encoders={
+            datetime: lambda v: v.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        }
     )
 
 # --- Transaction Base ---
@@ -38,7 +40,6 @@ class TransactionBase(BaseUTCModel):
     )
 
     transaction_date: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
         description="Transaction datetime in UTC"
     )
 
@@ -54,23 +55,27 @@ class TransactionBase(BaseUTCModel):
 
 
 class TransactionRead(TransactionBase):
-    transaction_id: str = Field(
+    # transaction_id: str = Field(
+    #     ...,
+    #     description="Unique identifier for the transaction"
+    # )
+    transaction_no: str = Field(
         ...,
         description="Unique identifier for the transaction"
     )
 
     user_id: int
 
-    account: AccountRead
+    wallet: AccountRead
     category: Optional[CategoryRead]
 
 # --- Create Schema ---
 
 
 class TransactionCreate(TransactionBase):
-    account_id: str = Field(
+    wallet_id: str = Field(
         ...,
-        description="Reference to associated account"
+        description="Reference to associated wallet"
     )
 
     category_id: Optional[str] = Field(
@@ -100,9 +105,9 @@ class TransactionUpdate(BaseModel):
         description="Updated transaction note"
     )
 
-    account_id: Optional[str] = Field(
+    wallet_id: Optional[str] = Field(
         None,
-        description="Updated account reference"
+        description="Updated wallet reference"
     )
 
     category_id: Optional[str] = Field(

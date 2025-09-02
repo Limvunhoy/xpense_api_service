@@ -10,8 +10,12 @@ from app.core.helper.timezones import get_now_utc_plus_7
 from app.models.user import User
 
 if TYPE_CHECKING:
-    from .account import Account
+    from .wallet import Wallet
     from .category import Category
+
+
+def short_uuid() -> str:
+    return f"TXN{uuid4().hex[:12].upper()}"
 
 
 class TransactionBase(SQLModel):
@@ -36,7 +40,6 @@ class TransactionBase(SQLModel):
     )
 
     transaction_date: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
         nullable=False,
         description="Effective date/time of the transaction"
     )
@@ -71,6 +74,15 @@ class Transaction(TransactionBase, table=True):
         description="Primary key stored as UUID string"
     )
 
+    transaction_no: str = Field(
+        default_factory=short_uuid,
+        index=True,
+        unique=True,
+        max_length=12,
+        nullable=False,
+        description="Transaction No. use to display for mobile side"
+    )
+
     created_at: datetime = Field(
         sa_column=Column(
             DateTime(timezone=True),
@@ -88,10 +100,10 @@ class Transaction(TransactionBase, table=True):
     )
 
     # Foreign keys
-    account_id: str = Field(
-        foreign_key="accounts.account_id",
+    wallet_id: str = Field(
+        foreign_key="wallets.wallet_id",
         nullable=False,
-        description="Reference to associated account"
+        description="Reference to associated wallet"
     )
 
     category_id: Optional[str] = Field(
@@ -104,7 +116,7 @@ class Transaction(TransactionBase, table=True):
     user: Optional[User] = Relationship(back_populates="transactions")
 
     # Relationships
-    account: "Account" = Relationship(back_populates="transactions")
+    wallet: "Wallet" = Relationship(back_populates="transactions")
 
     category: Optional["Category"] = Relationship(
         back_populates="transactions")
