@@ -1,3 +1,7 @@
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, status
+from sqlmodel import select, desc, func
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query, logger, status
 from typing import Dict, List, Optional
 from sqlalchemy import func
@@ -158,7 +162,7 @@ def get_current_week_transactions(
     *,
     session: Session = Depends(get_session),
     currency: Optional[str] = Query(
-        "USD",
+        None,
         min_length=3,
         max_length=3,
         pattern="^[A-Z]{3}$",
@@ -167,51 +171,55 @@ def get_current_week_transactions(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Retrieve all transactions for the current week (Monday 00:00:00 to Sunday 23:59:59) in UTC+7 timezone.
-
+    Retrieve all transactions for the current week (Monday to Sunday) in UTC+7 timezone.
     Optionally filter by currency code. Returns transactions ordered by date (newest first).
     """
     try:
-        # Get current time in UTC+7 (Phnom Penh timezone)
-        tz = timezone(timedelta(hours=7))
-        current_time = datetime.now(tz)
+        # --- Calculate current week in UTC+7 ---
+        tz_offset = timedelta(hours=7)
+        now_utc = datetime.now(timezone.utc)
+        now_local = now_utc + tz_offset
 
-        # Calculate week boundaries
-        start_of_week = current_time - timedelta(days=current_time.weekday())
-        start_of_week = start_of_week.replace(
+        # Start of week (Monday 00:00 local)
+        start_local = (now_local - timedelta(days=now_local.weekday())).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
+        # End of week (Sunday 23:59:59 local)
+        end_local = start_local + \
+            timedelta(days=6, hours=23, minutes=59,
+                      seconds=59, microseconds=999999)
 
-        end_of_week = start_of_week + timedelta(days=6)
-        end_of_week = end_of_week.replace(
-            hour=23, minute=59, second=59, microsecond=999999
-        )
+        # Convert back to UTC for DB query
+        start_utc = start_local - tz_offset
+        end_utc = end_local - tz_offset
 
-        # Build base query
-        query = (
-            select(Transaction)
-            .where(
-                Transaction.user_id == current_user.id,
-                Transaction.transaction_date >= start_of_week,
-                Transaction.transaction_date <= end_of_week
-            )
-            .order_by(desc(Transaction.transaction_date))
-        )
+        # Debug
+        print("Start of week UTC:", start_utc)
+        print("End of week UTC:", end_utc)
 
-        # Apply currency filter if provided
+        # --- Build query ---
+        query = select(Transaction).where(
+            Transaction.user_id == current_user.id,
+            func.date(Transaction.transaction_date) >= start_utc.date(),
+            func.date(Transaction.transaction_date) <= end_utc.date()
+        ).order_by(desc(Transaction.transaction_date))
+
         if currency:
             query = query.where(Transaction.currency == currency.upper())
 
-        # Execute query
         transactions = session.exec(query).all()
 
-        return success_response(data=transactions)
+        return success_response(
+            result_code=status.HTTP_200_OK,
+            result_message="Success",
+            data=transactions
+        )
 
     except Exception as e:
         logger.error(f"Failed to fetch current week transactions: {str(e)}")
         raise AppHTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch current week transactions",
+            result_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            result_message="Failed to fetch current week transactions",
             error_code="TRANSACTION_FETCH_ERROR",
         )
 
@@ -259,7 +267,7 @@ async def create_transaction(
         validate_entity(category, "Category")
 
         new_transaction = Transaction(
-            **transaction_in.model_dump(), 
+            **transaction_in.model_dump(),
             user_id=current_user.id
         )
 
