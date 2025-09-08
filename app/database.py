@@ -1,59 +1,77 @@
-# app/database.py
+from sqlite3 import OperationalError
+import time
 from sqlmodel import SQLModel, create_engine, Session
 from app.core.settings import settings
+import logging
 
 
-# Select database URL based on ENV
+def test_connection(retries: int = 5, delay: int = 2):
+    """Check DB connection with retry"""
+    for attempt in range(1, retries + 1):
+        try:
+            with engine.connect() as conn:
+                result = conn.execute("SELECT 1")
+                logging.info(
+                    f"Database connected successfully: {result.scalar()}")
+                return True
+        except OperationalError as e:
+            logging.warning(
+                f"Database connection failed (attempt {attempt}/{retries}): {e}")
+            time.sleep(delay)
+    logging.error("All retries failed. Database not reachable.")
+    return False
+
+
+logging.basicConfig(level=logging.INFO)
+
+# Database URL
 if settings.ENV == "dev":
     DATABASE_URL = (
         f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
         f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     )
-
-    engine = create_engine(
-        DATABASE_URL,
-        echo=True,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-    )
-
 else:
     if not settings.SUPABASE_PROJECT_ID or not settings.SUPABASE_PASSWORD:
-        raise EnvironmentError(
-            "Missing SUPABASE_PROJECT_ID or SUPABASE_PASSWORD in environment"
-        )
+        raise RuntimeError("Missing Supabase env vars")
 
-    if settings.SUPABASE_USE_POOLER:
-        DB_USER = f"postgres.{settings.SUPABASE_PROJECT_ID}"
-        DB_HOST = "aws-1-ap-southeast-1.pooler.supabase.com"
-    else:
-        DB_USER = "postgres"
-        DB_HOST = f"db.{settings.SUPABASE_PROJECT_ID}.supabase.co"
-
-    DATABASE_URL = (
-        f"postgresql+psycopg2://{DB_USER}:{settings.SUPABASE_PASSWORD}"
-        f"@{DB_HOST}:5432/postgres"
+    DB_USER = f"postgres.{settings.SUPABASE_PROJECT_ID}" if settings.SUPABASE_USE_POOLER else "postgres"
+    DB_HOST = (
+        "aws-1-ap-southeast-1.pooler.supabase.com"
+        if settings.SUPABASE_USE_POOLER
+        else f"db.{settings.SUPABASE_PROJECT_ID}.supabase.co"
     )
 
-    engine = create_engine(
-        DATABASE_URL,
-        echo=True,
-        pool_pre_ping=True,
-        connect_args={
-            "sslmode": "require",
-            "gssencmode": "disable",
-        },
-    )
+    DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{settings.SUPABASE_PASSWORD}@{DB_HOST}:5432/postgres"
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=True,
+    pool_pre_ping=True,
+    connect_args={"sslmode": "require"} if settings.ENV != "dev" else {}
+)
 
 
-def create_db_and_tables() -> None:
-    """Create tables only in development."""
+def test_connection():
+    """Check DB connection without crashing"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute("SELECT 1")
+            logging.info(f"Database connected successfully: {result.scalar()}")
+    except Exception as e:
+        logging.warning(f"Database connection failed: {e}")
+
+
+def create_db_and_tables():
+    """Create tables, safe for dev only, does not crash in prod"""
     if settings.ENV == "dev":
-        SQLModel.metadata.create_all(engine)
+        try:
+            SQLModel.metadata.create_all(engine)
+            logging.info("Tables created successfully")
+        except Exception as e:
+            logging.warning(f"Failed to create tables: {e}")
 
 
 def get_session():
-    """Yield a database session."""
+    """DB session generator"""
     with Session(engine) as session:
         yield session

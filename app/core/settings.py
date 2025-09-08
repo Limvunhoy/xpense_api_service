@@ -1,12 +1,10 @@
-# app/core/settings.py
 from pydantic_settings import BaseSettings
 from pydantic import Field
-
 
 class Settings(BaseSettings):
     # Environment
     ENV: str = Field(default="dev")
-    JWT_SECRET_KEY: str = Field(default='123')
+    JWT_SECRET_KEY: str = Field(default="123")
 
     # Local Postgres (dev)
     POSTGRES_USER: str = Field(default="xpense")
@@ -21,9 +19,9 @@ class Settings(BaseSettings):
     SUPABASE_USE_POOLER: bool = Field(default=False)
 
     class Config:
-        env_file = ".env"  # auto-loads from .env
+        env_file = ".env"
         env_file_encoding = "utf-8"
         extra = "forbid"
 
-
+# ✅ no self-import here!
 settings = Settings()

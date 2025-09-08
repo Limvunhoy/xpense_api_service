@@ -1,42 +1,56 @@
+import os
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from sqlmodel import Session, SQLModel, create_engine
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
-from app.database import get_session, create_db_and_tables
+from app.database import create_db_and_tables, test_connection
 from app.routers import user
 from .routers import transaction, wallet, category
 from app.exceptions import AppHTTPException
-from fastapi.staticfiles import StaticFiles
 from app.core.settings import settings
+import logging
 
-
+logging.basicConfig(level=logging.INFO)
 print("Loaded ENV:", settings.ENV)
 print("Loaded POSTGRES_USER:", settings.POSTGRES_USER)
+print("Starting FastAPI on port:", os.environ.get("PORT"))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logging.info("App startup: testing DB connection")
+    if not test_connection():
+        logging.warning(
+            "Database not available at startup, continuing anyway...")
     try:
         create_db_and_tables()
     except Exception as e:
-        print("Error creating tables: ", e)
+        logging.warning(f"Skipping table creation: {e}")
     yield
+    logging.info("App shutdown")
+
 
 app = FastAPI(lifespan=lifespan)
 
+# Mount static files
 app.mount("/static/icons", StaticFiles(directory="app/static/icons"),
           name="static_icons")
 
+# Include routers
 app.include_router(user.router)
 app.include_router(transaction.router)
 app.include_router(wallet.router)
 app.include_router(category.router)
 
+# Root route
+
 
 @app.get("/")
 def root():
     return {"message": "Welcome to Xpense API Service"}
+
+# Custom exception handler
 
 
 @app.exception_handler(AppHTTPException)
@@ -52,7 +66,5 @@ async def http_exception_handler(request: Request, exc: AppHTTPException):
 
 
 if __name__ == "__main__":
-    import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8080))
-    uvicorn.run("app/main:app", host="0.0.0.0", port=port, log_level="info")
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, log_level="info")
