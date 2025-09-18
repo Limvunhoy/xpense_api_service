@@ -78,7 +78,7 @@ class Transaction(TransactionBase, table=True):
         default_factory=short_uuid,
         index=True,
         unique=True,
-        max_length=12,
+        max_length=16,
         nullable=False,
         description="Transaction No. use to display for mobile side"
     )

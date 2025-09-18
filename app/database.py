@@ -25,11 +25,16 @@ def test_connection(retries: int = 5, delay: int = 2):
 logging.basicConfig(level=logging.INFO)
 
 # Database URL
-if settings.ENV == "dev":
+if settings.ENV != "dev":
+    if not settings.SUPABASE_PROJECT_ID or not settings.SUPABASE_PASSWORD:
+        raise RuntimeError("Missing Supabase env vars")
+
+    DB_USER = "postgres"  # not using pooler
+    DB_HOST = f"db.{settings.SUPABASE_PROJECT_ID}.supabase.co"  # direct host
     DATABASE_URL = (
-        f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
-        f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
+        f"postgresql+psycopg2://{DB_USER}:{settings.SUPABASE_PASSWORD}@{DB_HOST}:5432/postgres"
     )
+
 else:
     if not settings.SUPABASE_PROJECT_ID or not settings.SUPABASE_PASSWORD:
         raise RuntimeError("Missing Supabase env vars")
