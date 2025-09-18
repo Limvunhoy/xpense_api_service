@@ -36,17 +36,22 @@ if settings.ENV != "dev":
     )
 
 else:
-    if not settings.SUPABASE_PROJECT_ID or not settings.SUPABASE_PASSWORD:
-        raise RuntimeError("Missing Supabase env vars")
-
-    DB_USER = f"postgres.{settings.SUPABASE_PROJECT_ID}" if settings.SUPABASE_USE_POOLER else "postgres"
-    DB_HOST = (
-        "aws-1-ap-southeast-1.pooler.supabase.com"
-        if settings.SUPABASE_USE_POOLER
-        else f"db.{settings.SUPABASE_PROJECT_ID}.supabase.co"
+    DATABASE_URL = (
+        f"postgresql+psycopg2://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
+        f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
     )
 
-    DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{settings.SUPABASE_PASSWORD}@{DB_HOST}:5432/postgres"
+    # if not settings.SUPABASE_PROJECT_ID or not settings.SUPABASE_PASSWORD:
+    #     raise RuntimeError("Missing Supabase env vars")
+
+    # DB_USER = f"postgres.{settings.SUPABASE_PROJECT_ID}" if settings.SUPABASE_USE_POOLER else "postgres"
+    # DB_HOST = (
+    #     "aws-1-ap-southeast-1.pooler.supabase.com"
+    #     if settings.SUPABASE_USE_POOLER
+    #     else f"db.{settings.SUPABASE_PROJECT_ID}.supabase.co"
+    # )
+
+    # DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{settings.SUPABASE_PASSWORD}@{DB_HOST}:5432/postgres"
 
 engine = create_engine(
     DATABASE_URL,
