@@ -111,9 +111,10 @@ def get_total_expenses(
     }
     """
     try:
-        # Base conditions: user + type
+        # Base conditions: user + active transactions only
         conditions = [
             Transaction.user_id == current_user.id,
+            Transaction.is_active == True   # ✅ exclude deleted
         ]
 
         # Apply date filters if provided

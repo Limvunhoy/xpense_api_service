@@ -55,10 +55,10 @@ class TransactionBase(BaseUTCModel):
 
 
 class TransactionRead(TransactionBase):
-    # transaction_id: str = Field(
-    #     ...,
-    #     description="Unique identifier for the transaction"
-    # )
+    transaction_id: str = Field(
+        ...,
+        description="Unique identifier for the transaction"
+    )
     transaction_no: str = Field(
         ...,
         description="Unique identifier for the transaction"
