@@ -1,20 +1,16 @@
 import os
-import uvicorn
+import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from app.database import create_db_and_tables, test_connection
-from app.routers import user
-from .routers import transaction, wallet, category
+from app.routers import user, transaction, wallet, category
 from app.exceptions import AppHTTPException
 from app.core.settings import settings
-import logging
 
 logging.basicConfig(level=logging.INFO)
-print("Loaded ENV:", settings.ENV)
-print("Loaded POSTGRES_USER:", settings.POSTGRES_USER)
-print("Starting FastAPI on port:", os.environ.get("PORT"))
+logging.info(f"Loaded ENV: {settings.ENV}")
 
 
 @asynccontextmanager
@@ -43,14 +39,10 @@ app.include_router(transaction.router)
 app.include_router(wallet.router)
 app.include_router(category.router)
 
-# Root route
-
 
 @app.get("/")
 def root():
     return {"message": "Welcome to Xpense API Service"}
-
-# Custom exception handler
 
 
 @app.exception_handler(AppHTTPException)
@@ -66,5 +58,8 @@ async def http_exception_handler(request: Request, exc: AppHTTPException):
 
 
 if __name__ == "__main__":
+    # Use Cloud Run port
     port = int(os.environ.get("PORT", 8080))
+    logging.info(f"Starting FastAPI on port {port}")
+    import uvicorn
     uvicorn.run("app.main:app", host="0.0.0.0", port=port, log_level="info")

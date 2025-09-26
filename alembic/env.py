@@ -86,22 +86,25 @@ target_metadata = SQLModel.metadata
 
 def get_url() -> str:
     """Choose database URL based on ENV."""
-    env = os.getenv("ENV", "dev")
+    # env = os.getenv("ENV", "dev")
 
-    if env == "dev":
-        # Local development DB
-        return "postgresql+psycopg2://xpense:secret123@localhost:5432/xpense"
-    else:
-        # Default to DATABASE_URL from env (Supabase, staging, production, etc.)
-        db_url = os.getenv("DATABASE_URL")
-        if not db_url:
-            raise RuntimeError(
-                "DATABASE_URL must be set for non-dev environments")
-        return db_url
+    # if env == "dev":
+    #     # Local development DB
+    #     return "postgresql+psycopg2://xpense:secret123@localhost:5432/xpense"
+    # else:
+    #     # Default to DATABASE_URL from env (Supabase, staging, production, etc.)
+    #     db_url = os.getenv("DATABASE_URL")
+    #     if not db_url:
+    #         raise RuntimeError(
+    #             "DATABASE_URL must be set for non-dev environments")
+    #     return db_url
+    return os.getenv(
+        "DATABASE_URL",
+        "postgresql+psycopg2://xpense:secret123@localhost:5432/xpense"
+    )
 
 
 def run_migrations_offline():
-    """Run migrations in 'offline' mode."""
     url = get_url()
     context.configure(
         url=url,
@@ -109,24 +112,20 @@ def run_migrations_offline():
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
-
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online():
-    """Run migrations in 'online' mode."""
     connectable = engine_from_config(
         config.get_section(config.config_ini_section),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        url=get_url(),  # <-- inject our chosen URL
+        url=get_url(),
     )
-
     with connectable.connect() as connection:
         context.configure(connection=connection,
                           target_metadata=target_metadata)
-
         with context.begin_transaction():
             context.run_migrations()
 
